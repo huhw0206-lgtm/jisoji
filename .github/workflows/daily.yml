@@ -1,0 +1,62 @@
+name: 매일 자동 갱신
+
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      force_master:
+        description: "단지 목록·기본정보도 다시 받기 (1 또는 비워두기)"
+        required: false
+        default: ""
+  push:
+    paths:
+      - "data/seed.json"
+      - "templates/**"
+      - "scripts/**"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy
+      - name: 데이터 수집
+        if: github.event_name != 'push'
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          FORCE_BASS: ${{ github.event.inputs.force_master }}
+        run: python scripts/daily_update.py
+      - name: 수집한 데이터 저장
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "daily-bot"
+          git config user.email "daily-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "데이터 갱신 $(date -u +%F)"
+          git pull --rebase origin ${{ github.ref_name }} || true
+          git push || true
+      - name: 사이트 만들기
+        run: python scripts/build_site.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
