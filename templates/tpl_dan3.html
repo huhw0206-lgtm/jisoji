@@ -1,0 +1,350 @@
+<title>단소지수</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: 지역·업로드 바 → 세부 필터 패널 3개 → 결과 표(가로 스크롤, 첫 열 고정) → 점수 기준표 */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#171c26; --muted:#5d6676; --line:#dfe3ea;
+  --accent:#1f5fbf; --accent-ink:#ffffff; --soft:#e8f0fb;
+  --warn:#a85a00; --warnbg:#fff1dc; --good:#0b7a4b; --bad:#b3261e;
+  --g1:#eceff4; --g2:#d3e1f5; --g3:#a9c6ee; --g4:#6c9fe0; --g5:#1f5fbf;
+  --g1i:#5d6676; --g2i:#1b3a66; --g3i:#12315c; --g4i:#0b2447; --g5i:#ffffff;
+  --font:"Noto Sans KR",system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f131a; --panel:#171c26; --ink:#e8ecf3; --muted:#9aa4b5; --line:#2b3342;
+  --accent:#6ea2ee; --accent-ink:#0b1426; --soft:#1c2a42;
+  --warn:#f0b35a; --warnbg:#3a2a12; --good:#5fd39b; --bad:#ff8a80;
+  --g1:#252c3a; --g2:#2a3b5c; --g3:#34528a; --g4:#4a78c4; --g5:#78a8f2;
+  --g1i:#9aa4b5; --g2i:#cfe0fa; --g3i:#e6efff; --g4i:#ffffff; --g5i:#0b1426; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131a; --panel:#171c26; --ink:#e8ecf3; --muted:#9aa4b5; --line:#2b3342;
+  --accent:#6ea2ee; --accent-ink:#0b1426; --soft:#1c2a42;
+  --warn:#f0b35a; --warnbg:#3a2a12; --good:#5fd39b; --bad:#ff8a80;
+  --g1:#252c3a; --g2:#2a3b5c; --g3:#34528a; --g4:#4a78c4; --g5:#78a8f2;
+  --g1i:#9aa4b5; --g2i:#cfe0fa; --g3i:#e6efff; --g4i:#ffffff; --g5i:#0b1426; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:15px;margin:0 0 8px}
+.sub{color:var(--muted);margin:2px 0 0}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld>span,.lab{font-size:12px;color:var(--muted);font-weight:500}
+.row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+input[type=number],input[type=text],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:84px;min-width:0}
+input[type=text]{width:150px}
+input:focus-visible,select:focus-visible,button:focus-visible,.file:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.chk{display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 0}
+button,.file{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;display:inline-block}
+button.tab[aria-expanded="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.rwrap{position:relative;display:inline-block}
+.rbtn{display:inline-flex;align-items:center;gap:8px;max-width:100%}
+.rbtn::after{content:"▾";font-size:11px;opacity:.7}
+.rpop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:grid;grid-template-columns:120px minmax(170px,1fr);width:min(420px,calc(100vw - 32px));overflow:hidden}
+.rcol{height:280px;overflow-y:auto;padding:4px 0;display:flex;flex-direction:column}
+.rcol+.rcol{border-left:1px solid var(--line)}
+.rli{border:0;border-radius:0;background:transparent;text-align:left;white-space:nowrap;padding:9px 12px;display:flex;justify-content:space-between;gap:8px;width:100%}
+.rli[aria-selected="true"]{background:var(--soft);color:var(--accent);font-weight:600}
+.rli small{opacity:.75;font-weight:400}
+.badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-size:11px;text-align:center}
+.spacer{flex:1}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px 22px}
+.panel h3{margin:0 0 6px;font-size:13px}
+.bk{display:flex;flex-direction:column;gap:0}
+.bk .row{margin-top:6px}
+.gr{display:flex;gap:4px;flex-wrap:wrap}
+.meta{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.count{font-weight:700}
+.msg{color:var(--muted);font-size:12px}
+.msg.err{color:var(--bad)}
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:74vh}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:1400px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--panel);z-index:2;font-size:12px;color:var(--muted);font-weight:500;cursor:pointer;user-select:none}
+th.on{color:var(--accent)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:1}
+th:first-child{z-index:3}
+td.nm{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+td small{display:block;color:var(--muted);font-size:11px;line-height:1.2}
+tr:hover td{background:var(--soft)}
+.chip{display:inline-block;width:26px;height:22px;line-height:22px;border-radius:5px;text-align:center;font-size:12px;font-weight:700}
+.chip.g1{background:var(--g1);color:var(--g1i)}
+.chip.g2{background:var(--g2);color:var(--g2i)}
+.chip.g3{background:var(--g3);color:var(--g3i)}
+.chip.g4{background:var(--g4);color:var(--g4i)}
+.chip.g5{background:var(--g5);color:var(--g5i)}
+.sum{font-weight:700;font-size:15px}
+.up{color:var(--good)}.dn{color:var(--bad)}
+.notes{color:var(--muted);font-size:12.5px;display:grid;gap:4px;max-width:960px}
+.notes b{color:var(--ink);font-weight:500}
+.rules{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto}
+.rules table{min-width:640px;font-size:13px}
+.rules th{position:static;cursor:default}
+.rules th:first-child,.rules td:first-child{position:static}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+@media (max-width:640px){h1{font-size:19px}.bar{padding:10px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>단소지수</h1>
+    <p class="sub" id="asof"></p>
+  </header>
+
+  <section class="bar" aria-label="지역과 검색">
+    <div class="fld"><span>지역 (시도 → 시군구)</span><div class="rwrap" id="rgWrap"><button type="button" class="rbtn" id="rgBtn" aria-haspopup="true" aria-expanded="false"></button><div class="rpop" id="rgPop" hidden><div class="rcol" id="rgSi"></div><div class="rcol" id="rgGu"></div></div></div></div>
+    <label class="fld"><span>단지명·동 검색</span><input id="q" type="text" placeholder="예: 풍림"></label>
+    <span class="spacer"></span>
+    <label class="file" tabindex="0" id="fileLab">엑셀 추가<input id="file" type="file" accept=".xlsx,.xls" multiple></label>
+    <button class="tab" id="tg1" aria-expanded="false" aria-controls="p1">지수 필터<span class="badge" id="b1" hidden></span></button>
+    <button class="tab" id="tg2" aria-expanded="false" aria-controls="p2">가격 필터<span class="badge" id="b2" hidden></span></button>
+    <button class="tab" id="tg3" aria-expanded="false" aria-controls="p3">단지 필터<span class="badge" id="b3" hidden></span></button>
+    <button id="reset">초기화</button>
+  </section>
+
+  <section class="panel" id="p1" hidden></section>
+  <section class="panel" id="p2" hidden></section>
+  <section class="panel" id="p3" hidden></section>
+
+  <div class="meta">
+    <span><span class="count" id="cnt"></span> <span class="msg" id="cnt2"></span></span>
+    <span class="spacer"></span>
+    <span class="msg" id="msg" role="status"></span>
+    <button id="copy">표 복사</button>
+  </div>
+
+  <div class="tbl"><table id="t"><thead></thead><tbody></tbody></table><div class="empty" id="empty" hidden>조건에 맞는 단지가 없습니다. 조건을 넓혀 보세요.</div></div>
+
+  <section class="rules">
+    <h2>점수 기준</h2>
+    <table>
+      <thead><tr><th>지수</th><th>기준 값</th><th>1점</th><th>2점</th><th>3점</th><th>4점</th><th>5점</th></tr></thead>
+      <tbody>
+        <tr><td>세대수</td><td>단지 총세대수</td><td>200 미만</td><td>200~500</td><td>501~1,000</td><td>1,001~1,999</td><td>2,000 이상</td></tr>
+        <tr><td>연식</td><td>연차(만 햇수)</td><td>26년 이상</td><td>16~25</td><td>11~15</td><td>6~10</td><td>5년 이하</td></tr>
+        <tr><td>평당가</td><td>평당가율(%)</td><td>70 이하</td><td>71~100</td><td>101~130</td><td>131~159</td><td>160 이상</td></tr>
+        <tr><td>거래량</td><td>거래율(%)</td><td>0.6 이하</td><td>0.7~1.2</td><td>1.3~1.8</td><td>1.9~2.4</td><td>2.5 이상</td></tr>
+        <tr><td>실거래가</td><td>실거래가율(%)</td><td>1 이하</td><td>2~7</td><td>8~12</td><td>13~19</td><td>20 이상</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="notes">
+    <div><b>평당가율</b> 단지 평당가 ÷ 시군구 평당가(같은 평형대) × 100입니다. 평당가 자료가 없으면 1점입니다.</div>
+    <div><b>거래율</b> 최근 6개월 매매 거래량 ÷ 해당 평형 세대수 × 100입니다. 거래가 없으면 1점입니다.</div>
+    <div><b>실거래가율</b> (최근 3개월 중앙값 평당가 ÷ 6개월 전 3개월 중앙값 평당가 − 1) × 100입니다. 최근 3개월은 2026-08~10, 6개월 전 3개월은 2026-03~05이고, 면적이 섞이는 영향을 줄이려고 평당가의 중앙값을 씁니다. 두 기간 중 하나라도 거래가 없으면 1점입니다.</div>
+    <div><b>매매·전세 시세</b> 현재 진입 가능한 가격대를 보려고 가장 최근 실거래 1건을 씁니다. 해당 구간에서 최근 12개월 거래가 가장 많은 전용면적(평형) 하나를 정하고, 그 면적의 가장 최근 매매 거래가와 가장 최근 전세(월세 제외, 갱신 계약 포함) 보증금으로 매전갭 = 매매 − 전세를 계산합니다. 같은 면적의 거래가 없으면 비어 있습니다. 거래 1건이라 변동이 클 수 있으니 셀 아래의 거래일·층을 같이 보세요.</div>
+    <div><b>점수</b>는 엑셀의 평당가율, 거래율, 실거래가율, 연차, 총세대수 값에서 위 기준으로 다시 계산합니다. 연수구·금천구·노원구 엑셀 1,514행에서 엑셀의 점수와 모두 일치했습니다.</div>
+    <div><b>엑셀 추가</b>로 같은 형식의 다른 지역 엑셀을 올리면 이 화면에서 바로 볼 수 있습니다. 올린 파일은 이 화면을 닫으면 사라집니다.</div>
+  </section>
+</div>
+
+<script>
+const BASE=__DATA__;
+const ASOF="2026-11-14";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const won=m=>{if(m==null||isNaN(m))return"-";const s=m<0?"-":"";m=Math.abs(Math.round(m));const e=Math.floor(m/10000),r=m%10000;return s+(e?e+"억":"")+(r?(e?" ":"")+r.toLocaleString():(e?"":"0"))};
+const nz=v=>(v===""||v==null)?null:(isFinite(+v)?+v:null);
+const r1=v=>Math.round(v*10)/10;
+/* 엑셀 한 행(39열) → 객체. 점수는 기준표로 다시 계산 */
+function toObj(a){
+  const o={rg:a[0],dg:a[1],nm:a[2],tot:nz(a[3]),py:nz(a[4]),hh:nz(a[5]),ym:a[6]==null?"":String(a[6]),age:nz(a[7]),ppp:nz(a[8]),base:nz(a[9]),pr:nz(a[10]),
+    v6:nz(a[11])||0,tr:nz(a[12])||0,N:nz(a[13]),O:nz(a[14]),dr:nz(a[15]),gap:nz(a[22]),jr:nz(a[23]),mm:nz(a[24]),mmin:nz(a[25]),mcnt:nz(a[26]),
+    jm:nz(a[27]),jmin:nz(a[28]),jcnt:nz(a[29]),pmin:nz(a[30]),pmax:nz(a[31]),peak:nz(a[32]),peakYm:a[33]==null?"":String(a[33]),tv:nz(a[34]),jv:nz(a[35]),gr:[a[36],a[37],a[38]]};
+  const t=o.tot,g=o.age,pr=o.pr,tr=r1(o.tr),dr=o.dr;
+  o.s=[t<200?1:t<=500?2:t<=1000?3:t<2000?4:5,
+       g<=5?5:g<=10?4:g<=15?3:g<=25?2:1,
+       pr==null||pr<=70?1:pr<=100?2:pr<=130?3:pr<160?4:5,
+       tr<=0.6?1:tr<=1.2?2:tr<=1.8?3:tr<=2.4?4:5,
+       dr==null||dr<=1?1:dr<=7?2:dr<=12?3:dr<=19?4:5];
+  o.base0=o.base;o.pr0=o.pr;
+  o.sum=o.s.reduce((x,y)=>x+y,0);
+  o.P=a[39]!=null?a[39]:(o.gap!=null&&o.jr!=null&&o.jr<100)?o.gap/(1-o.jr/100):null;
+  o.J=a[40]!=null?a[40]:o.P!=null&&o.gap!=null?o.P-o.gap:null;
+  o.pn=a[41];o.jn=a[42];o.ty=a[24];o.pd=a[25];o.jd=a[26];o.pf=a[27];o.jf=a[28];o.bl=a[43];o.pl=a[44];o.na=a[45];o.no=a[46];
+  o.pub=o.pmax;
+  return o;
+}
+const sP=pr=>pr==null||pr<=70?1:pr<=100?2:pr<=130?3:pr<160?4:5;
+let bandLblFn=null;const bkey=o=>o.rg+"|"+bandLblFn(o);
+function applyBase(o){
+  o.base=o.base0;o.pr=o.pr0;
+  o.s[2]=sP(o.pr);o.sum=o.s.reduce((x,y)=>x+y,0);
+}
+let D=[]; const files={};
+function loadRows(label,rows){
+  const objs=rows.filter(a=>a&&a[2]).map(toObj);
+  files[label]=objs.length;
+  D=D.filter(o=>o.rg!==label).concat(objs);
+}
+(function(){const g={};BASE.forEach(a=>(g[a[0]]=g[a[0]]||[]).push(a));Object.keys(g).forEach(k=>loadRows(k,g[k]))})();
+
+/* 구간 필터 정의 (값은 만원 / 평 / 세대 / 년) */
+const E=1e4;
+const BK=[
+ {id:"P",panel:2,t:"매매 시세",get:o=>o.P,unit:E,ul:"억",items:[["1억 미만",0,1*E],["1~3억",1*E,3*E],["3~5억",3*E,5*E],["5~7억",5*E,7*E],["7~10억",7*E,10*E],["10~15억",10*E,15*E],["15억 이상",15*E,Infinity]]},
+ {id:"J",panel:2,t:"전세 시세",get:o=>o.J,unit:E,ul:"억",items:[["1억 미만",0,1*E],["1~3억",1*E,3*E],["3~5억",3*E,5*E],["5~7억",5*E,7*E],["7~10억",7*E,10*E],["10억 이상",10*E,Infinity]]},
+ {id:"G",panel:2,t:"매전갭",get:o=>o.gap,unit:E,ul:"억",items:[["1천만 미만",0,0.1*E],["1~3천만",0.1*E,0.3*E],["3~5천만",0.3*E,0.5*E],["5~8천만",0.5*E,0.8*E],["8천만~1억",0.8*E,1*E],["1~2억",1*E,2*E],["2~4억",2*E,4*E],["4억 이상",4*E,Infinity]]},
+ {id:"R",panel:2,t:"전세가율",get:o=>o.jr,unit:1,ul:"%",items:[["50% 미만",-Infinity,50],["50~60%",50,60],["60~70%",60,70],["70~80%",70,80],["80~90%",80,90],["90% 이상",90,Infinity]]},
+ {id:"U",panel:2,t:"공시가격(최대)",get:o=>o.pub,unit:E,ul:"억",items:[["1억 이하",0,1*E+1],["1~2억 이하",1*E+1,2*E+1],["2~4억",2*E+1,4*E],["4억 초과",4*E,Infinity]]},
+ {id:"T",panel:3,t:"단지 총세대수",get:o=>o.tot,unit:1,ul:"세대",items:[["300 미만",0,300],["300~500",300,500],["500~700",500,700],["700~1,000",700,1000],["1,000 이상",1000,Infinity]]},
+ {id:"Y",panel:3,t:"평형(공급)",get:o=>o.py,unit:1,ul:"평",items:[["20평 미만",0,20],["20~30평",20,30],["30~40평",30,40],["40~50평",40,50],["50평 이상",50,Infinity]]},
+ {id:"H",panel:3,t:"평형 세대수",get:o=>o.hh,unit:1,ul:"세대",items:[["50~100",0,100],["100~300",100,300],["300 이상",300,Infinity]]},
+ {id:"A",panel:3,t:"연차",get:o=>o.age,unit:1,ul:"년",items:[["5년 미만",-Infinity,5],["5~10년",5,10],["10~15년",10,15],["15~25년",15,25],["25~35년",25,35],["35년 이상",35,Infinity]]}
+];
+const GN=[["세대수지수",0],["연식지수",1],["평당가지수",2],["거래량지수",3],["실거래가지수",4]];
+const SUMB=[["1~5",1,5],["6~10",6,10],["11~15",11,15],["16~20",16,20],["21~25",21,25]];
+const bsel={},gsel=[new Set(),new Set(),new Set(),new Set(),new Set()],ssel=new Set(),rsel=new Set();let dsel=new Set(),curSi="";
+BK.forEach(b=>bsel[b.id]=new Set());
+/* UI 생성 */
+function bkHtml(b){return `<div class="bk"><h3>${b.t}</h3>${b.items.map((it,i)=>`<label class="chk"><input type="checkbox" data-b="${b.id}" data-i="${i}"> ${it[0]}</label>`).join("")}
+<span class="row"><input type="checkbox" data-rg="${b.id}" id="${b.id}on" checked title="직접 입력 범위 적용"> <input type="number" step="any" id="${b.id}min" placeholder="최소" data-d="${b.id}"> ~ <input type="number" step="any" id="${b.id}max" placeholder="최대" data-d="${b.id}"> <span class="msg">${b.ul}</span></span></div>`}
+$("p1").innerHTML=`<div class="bk"><h3>단소지수 (합계)</h3>${SUMB.map((s,i)=>`<label class="chk"><input type="checkbox" data-s="${i}"> ${s[0]}</label>`).join("")}</div>`+
+  GN.map(([n,k])=>`<div class="bk"><h3>${n}</h3><div class="gr">${[1,2,3,4,5].map(g=>`<label class="chk"><input type="checkbox" data-g="${k}" data-v="${g}"> ${g}</label>`).join("")}</div></div>`).join("")+
+  `<p class="msg" style="grid-column:1/-1;margin:0">아무것도 선택하지 않으면 전체입니다. 같은 항목에서 여러 개를 고르면 하나라도 맞는 단지가 나옵니다.</p>`;
+$("p2").innerHTML=BK.filter(b=>b.panel===2).map(bkHtml).join("");
+$("p3").innerHTML=BK.filter(b=>b.panel===3).map(bkHtml).join("")+`<div class="bk"><h3>동</h3><div id="dongBox"></div></div>`;
+function drawRegions(){
+  D.forEach(applyBase);
+  const rgs=Object.keys(files).sort(); rsel.forEach(r=>{if(!files[r])rsel.delete(r)});
+  if(rsel.size!==1){const k=rsel.size?[...rsel][0]:rgs[0];rsel.clear();rsel.add(k)}
+  const sidoOf=r=>r.split(" ")[0], guOf=r=>r.split(" ").slice(1).join(" ")||r;
+  const sidos=[...new Set(rgs.map(sidoOf))];
+  if(!sidos.includes(curSi))curSi=(rgs.find(r=>rsel.has(r))?sidoOf(rgs.find(r=>rsel.has(r))):sidos[0]);
+  $("rgBtn").textContent=[...rsel][0];
+  $("rgSi").innerHTML=sidos.map(si=>{const all=rgs.filter(r=>sidoOf(r)===si),n=all.filter(r=>rsel.has(r)).length;return `<button type="button" class="rli" data-s="${esc(si)}" aria-selected="${si===curSi}">${esc(si)}<small>${all.length}</small></button>`}).join("");
+  const gus=rgs.filter(r=>sidoOf(r)===curSi);
+  $("rgGu").innerHTML=gus.map(r=>`<button type="button" class="rli" data-r="${esc(r)}" aria-selected="${rsel.has(r)}">${esc(guOf(r))}<small>${files[r]}</small></button>`).join("");
+  const after=()=>{dsel=new Set();drawRegions();drawDongs();render()};
+  [...$("rgSi").children].forEach(b=>b.onclick=()=>{curSi=b.dataset.s;drawRegions()});
+  [...$("rgGu").children].forEach(b=>b.onclick=()=>{
+    rsel.clear();rsel.add(b.dataset.r);$("rgPop").hidden=true;$("rgBtn").setAttribute("aria-expanded","false");
+    after()});
+  $("asof").textContent=`엑셀 기준 ${ASOF} · ${rgs.join(", ")} · 전체 ${D.length.toLocaleString()}행`;
+}
+function drawDongs(){
+  const ds=[...new Set(D.filter(o=>rsel.has(o.rg)).map(o=>o.dg))].sort();
+  $("dongBox").innerHTML=ds.map(d=>`<label class="chk"><input type="checkbox" data-dg="${esc(d)}" ${dsel.has(d)?"checked":""}> ${esc(d)}</label>`).join("");
+  document.querySelectorAll("[data-dg]").forEach(c=>c.onchange=()=>{c.checked?dsel.add(c.dataset.dg):dsel.delete(c.dataset.dg);render()});
+}
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.b){const s=bsel[t.dataset.b],i=+t.dataset.i;t.checked?s.add(i):s.delete(i);render()}
+  else if(t.dataset.s){const i=+t.dataset.s;t.checked?ssel.add(i):ssel.delete(i);render()}
+  else if(t.dataset.g){const s=gsel[+t.dataset.g],v=+t.dataset.v;t.checked?s.add(v):s.delete(v);render()}
+  else if(t.dataset.d||t.dataset.rg)render();
+});
+document.addEventListener("input",e=>{if(e.target.dataset&&e.target.dataset.d||e.target.id==="dn_q")render()});
+[1,2,3].forEach(n=>$("tg"+n).onclick=()=>{const p=$("p"+n),open=p.hidden;[1,2,3].forEach(m=>{$("p"+m).hidden=true;$("tg"+m).setAttribute("aria-expanded","false")});if(open){p.hidden=false;$("tg"+n).setAttribute("aria-expanded","true")}});
+$("reset").onclick=()=>{
+  document.querySelectorAll(".panel input[type=checkbox]").forEach(c=>c.checked=false);
+  document.querySelectorAll(".panel input[type=number]").forEach(c=>c.value="");
+  document.querySelectorAll("[data-rg]").forEach(c=>c.checked=true);
+  Object.values(bsel).forEach(s=>s.clear());gsel.forEach(s=>s.clear());ssel.clear();dsel=new Set();$("q").value="";sk="sum";sd=-1;render()};
+/* 열 */
+const chip=g=>`<span class="chip g${g}">${g}</span>`;
+const sgn=v=>v==null?"-":(v>0?'<span class="up">+'+v+"%</span>":v<0?'<span class="dn">'+v+"%</span>":"0%");
+const F=n=>n==null?"-":Number(n).toLocaleString();
+const plLbl=o=>o.pl||(((o.py||10)<20?"10":(o.py||10)<30?"20":(o.py||10)<40?"30":"40")+(((o.py||10)>=40)?"평형대 이상":"평형대"));
+const bandLbl=o=>o.bl||(o.rg+"_"+(Math.floor(((o.py||10)-0.001)/10)*10)+"~"+(Math.floor(((o.py||10)-0.001)/10)*10+10)+"평");
+bandLblFn=plLbl;
+const T=[
+ o=>`세대수 : ${F(o.tot)}세대\n기준: 200 미만 1점 · 200~500 2점 · 501~1,000 3점 · 1,001~1,999 4점 · 2,000 이상 5점`,
+ o=>`입주연월 : ${o.ym} (${o.age}년차)\n기준: 5년 이하 5점 · 6~10년 4점 · 11~15년 3점 · 16~25년 2점 · 26년 이상 1점`,
+ o=>`(${o.nm}_${bandLbl(o)}) 평당가 : ${o.ppp==null?"거래 없음":F(o.ppp)+"만원"}\n(${o.rg}_${bandLbl(o)}) 평당가 : ${F(o.base)}만원\n평당가 비율 : ${o.pr==null?"-":o.pr+"%"}\n기준: 70% 이하 1점 · 71~100 2점 · 101~130 3점 · 131~159 4점 · 160 이상 5점`,
+ o=>`거래량 합(최근 6개월) : ${o.v6}건\n세대수(${bandLbl(o)}) : ${F(o.hh)}세대\n거래율 : ${o.tr}%\n기준: 0.6 이하 1점 · 0.7~1.2 2점 · 1.3~1.8 3점 · 1.9~2.4 4점 · 2.5 이상 5점`,
+ o=>`최근 3개월(2026-08~10) 평당가 중앙값 : ${o.N==null?"거래 없음":F(o.N)+"만원/전용평 ("+(o.na||0)+"건)"}\n6개월 전 3개월(2026-03~05) 평당가 중앙값 : ${o.O==null?"거래 없음":F(o.O)+"만원/전용평 ("+(o.no||0)+"건)"}\n실거래가율 : ${o.dr==null?"계산 불가(1점)":o.dr+"%"}\n기준: 1 이하 1점 · 2~7 2점 · 8~12 3점 · 13~19 4점 · 20 이상 5점`,
+];
+const TS=o=>`세대수 ${o.s[0]} + 연식 ${o.s[1]} + 평당가 ${o.s[2]} + 거래량 ${o.s[3]} + 실거래가 ${o.s[4]} = ${o.sum}`;
+const COLS=[
+ ["nm","단지 (지역)",o=>o.nm,o=>`${esc(o.nm)}<small>${esc(o.rg)} ${esc(o.dg)}</small>`,1],
+ ["tot","총세대수",o=>o.tot,o=>(o.tot||0).toLocaleString()],
+ ["py","평형 (세대수)",o=>o.py,o=>`${o.py}평<small>${o.hh}세대</small>`],
+ ["age","입주 (연차)",o=>o.age,o=>`${esc(o.ym)}<small>${o.age}년차</small>`],
+ ["s0","세대수",o=>o.s[0],o=>chip(o.s[0]),0,T[0]],["s1","연식",o=>o.s[1],o=>chip(o.s[1]),0,T[1]],["s2","평당가",o=>o.s[2],o=>chip(o.s[2]),0,T[2]],["s3","거래량",o=>o.s[3],o=>chip(o.s[3]),0,T[3]],["s4","실거래가",o=>o.s[4],o=>chip(o.s[4]),0,T[4]],
+ ["sum","단소지수",o=>o.sum,o=>`<span class="sum chip g${o.sum<=9?1:o.sum<=13?2:o.sum<=17?3:o.sum<=21?4:5}">${o.sum}</span>`,0,TS],
+ ["gap","매전갭",o=>o.gap,o=>o.gap==null?"-":"<b>"+won(o.gap)+"</b>"],
+ ["P","매매 시세",o=>o.P,o=>o.P==null?"-":`${won(o.P)}<small>${o.pd?o.pd.slice(2)+" 거래 · 전용"+o.ty+"㎡ "+o.pf+"층":(o.pn||0)+"건 중앙값"}</small>`],
+ ["J","전세 시세",o=>o.J,o=>o.J==null?"-":`${won(o.J)}<small>${o.jd?o.jd.slice(2)+" 거래 · "+o.jf:(o.jn||0)+"건 중앙값"}</small>`],
+ ["jr","전세가율",o=>o.jr,o=>o.jr==null?"-":o.jr+"%"],
+ ["ppp","평당가 (평당가율)",o=>o.ppp,o=>o.ppp==null?"-":`${o.ppp.toLocaleString()}<small>${o.pr}%</small>`],
+ ["v6","6개월 거래 (거래율)",o=>o.v6,o=>`${o.v6}건<small>${o.tr}%</small>`],
+ ["dr","실거래가율",o=>o.dr,o=>`${sgn(o.dr)}<small title="최근 3개월(2026-08~10) 중앙값 평당가 / 6개월 전 3개월(2026-03~05) 중앙값 평당가 (전용 평당 만원)">${o.N?F(o.N):"-"} / ${o.O?F(o.O):"-"}</small>`],
+ ["pub","공시가격",o=>o.pub,o=>o.pmin==null?"-":`${won(o.pmin)}<small>~ ${won(o.pmax)}</small>`]
+];
+let sk="sum",sd=-1;
+$("t").tHead.innerHTML="<tr>"+COLS.map(c=>`<th data-k="${c[0]}" title="${/^s\d$/.test(c[0])?"1~5점 (점수 기준표 참고)":"클릭하면 정렬"}">${c[1]}</th>`).join("")+"</tr>";
+document.querySelectorAll("#t th").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sk===k)sd=-sd;else{sk=k;sd=(k==="nm"||k==="P"||k==="J"||k==="gap"||k==="pub"||k==="mm"||k==="jm"||k==="py"||k==="age")?1:-1}render()});
+/* 필터 */
+const dv=id=>{const v=$(id).value;return v===""?null:+v};
+let shown=[];
+function render(){
+  const q=$("q").value.trim();
+  const dirs=BK.map(b=>{const on=$(b.id+"on").checked;return [b,on?dv(b.id+"min"):null,on?dv(b.id+"max"):null]});
+  shown=D.filter(o=>{
+    if(!rsel.has(o.rg))return false;
+    if(q&&!(o.nm.includes(q)||String(o.dg).includes(q)))return false;
+    if(dsel.size&&!dsel.has(o.dg))return false;
+    if(ssel.size&&![...ssel].some(i=>o.sum>=SUMB[i][1]&&o.sum<=SUMB[i][2]))return false;
+    for(let k=0;k<5;k++)if(gsel[k].size&&!gsel[k].has(o.s[k]))return false;
+    for(const [b,mn,mx] of dirs){
+      const v=b.get(o),s=bsel[b.id];
+      if(s.size){if(v==null||![...s].some(i=>v>=b.items[i][1]&&v<b.items[i][2]))return false}
+      if(mn!=null||mx!=null){if(v==null)return false;if(mn!=null&&v<mn*b.unit)return false;if(mx!=null&&v>mx*b.unit)return false}
+    }
+    return true;
+  });
+  const c=COLS.find(c=>c[0]===sk)||COLS[0];
+  shown.sort((a,b)=>{const x=c[2](a),y=c[2](b);if(x==null&&y==null)return a.nm.localeCompare(b.nm,"ko");if(x==null)return 1;if(y==null)return -1;
+    const r=typeof x==="string"?x.localeCompare(y,"ko"):x-y;return r*sd||(b.sum-a.sum)||a.nm.localeCompare(b.nm,"ko")});
+  $("t").tBodies[0].innerHTML=shown.map(o=>"<tr>"+COLS.map(c=>`<td${c[4]?' class="nm"':""}${c[5]?` title="${esc(c[5](o))}"`:""}>${c[3](o)}</td>`).join("")+"</tr>").join("");
+  document.querySelectorAll("#t th").forEach(th=>th.classList.toggle("on",th.dataset.k===sk));
+  $("empty").hidden=shown.length>0;
+  $("cnt").textContent=shown.length.toLocaleString()+"개 단지·평형";
+  $("cnt2").textContent=`(선택한 지역 ${D.filter(o=>rsel.has(o.rg)).length.toLocaleString()}행 중, 단지 ${new Set(shown.map(o=>o.rg+o.nm)).size}곳)`;
+  const n1=(ssel.size?1:0)+gsel.filter(s=>s.size).length;
+  const cnt=ids=>BK.filter(b=>ids.includes(b.panel)).reduce((n,b)=>n+(bsel[b.id].size?1:0)+(($(b.id+"on").checked&&(dv(b.id+"min")!=null||dv(b.id+"max")!=null))?1:0),0);
+  const n2=cnt([2]),n3=cnt([3])+(dsel.size?1:0);
+  [[1,n1],[2,n2],[3,n3]].forEach(([n,v])=>{$("b"+n).hidden=!v;$("b"+n).textContent=v});
+  $("msg").textContent="";
+}
+$("copy").onclick=()=>{
+  const head=["지역","동","단지명","총세대수","평형","평형세대수","입주월","연차","세대수점수","연식점수","평당가점수","거래량점수","실거래가점수","단소지수","매매시세","전세시세","매전갭","전세가율","평당가","평당가율","6개월거래","거래율","실거래가율","최소공시가","최대공시가"].join("\t");
+  const txt=head+"\n"+shown.map(o=>[o.rg,o.dg,o.nm,o.tot,o.py,o.hh,o.ym,o.age,...o.s,o.sum,o.P==null?"":Math.round(o.P),o.J==null?"":Math.round(o.J),o.gap,o.jr,o.ppp,o.pr,o.v6,o.tr,o.dr,o.pmin,o.pmax].map(v=>v==null?"":v).join("\t")).join("\n");
+  const done=()=>{$("msg").className="msg";$("msg").textContent=`${shown.length}행을 복사했습니다. 엑셀에 붙여넣으세요.`};
+  const fb=()=>{const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}t.remove();$("msg").className="msg";$("msg").textContent=ok?`${shown.length}행을 복사했습니다.`:"복사가 막혀 있습니다. 표를 직접 드래그해 복사해 주세요."};
+  try{navigator.clipboard.writeText(txt).then(done,fb)}catch(e){fb()}
+};
+/* 엑셀 업로드 */
+$("file").onchange=async ev=>{
+  const m=$("msg");
+  if(typeof XLSX==="undefined"){m.className="msg err";m.textContent="엑셀 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.";return}
+  const out=[];
+  for(const f of ev.target.files){
+    try{
+      const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const arr=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+      const hi=arr.findIndex(r=>r&&r[2]==="단지명"&&r[3]==="총세대수");
+      if(hi<0)throw new Error("단소테이블 형식이 아닙니다(단지명·총세대수 열을 찾지 못함)");
+      const rows=arr.slice(hi+1).filter(r=>r&&r[2]&&r[0]);
+      if(!rows.length)throw new Error("데이터 행이 없습니다");
+      const byRg={};rows.forEach(r=>(byRg[r[0]]=byRg[r[0]]||[]).push(r));
+      Object.keys(byRg).forEach(k=>{loadRows(k,byRg[k]);rsel.clear();rsel.add(k);out.push(`${k} ${byRg[k].length}행`)});
+    }catch(e){m.className="msg err";m.textContent=`${f.name}: ${e.message}`;ev.target.value="";return}
+  }
+  ev.target.value="";drawRegions();drawDongs();render();m.className="msg";m.textContent="추가했습니다: "+out.join(", ");
+};
+$("fileLab").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("file").click()}};
+$("rgBtn").onclick=e=>{e.stopPropagation();const o=$("rgPop").hidden;$("rgPop").hidden=!o;$("rgBtn").setAttribute("aria-expanded",String(o))};
+document.addEventListener("click",e=>{if(!e.composedPath().includes($("rgWrap"))){$("rgPop").hidden=true;$("rgBtn").setAttribute("aria-expanded","false")}});
+drawRegions();drawDongs();render();
+</script>

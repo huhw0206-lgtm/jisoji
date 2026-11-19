@@ -1,0 +1,969 @@
+<title>지소지수 흐름</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 위에서부터 평단가 선(변동 숫자) → 3개월 추이 화살표 → 지수 선 + 합계 막대, 한 차트에 세 구역을 쌓는다 */
+:root{
+  --bg:#f3f5f8;--card:#ffffff;--fg:#1a2130;--mute:#637085;--line:#e0e5ee;--accent:#1f4fd8;--accent-soft:#e6edfd;--on-accent:#ffffff;
+  --r1:#1f4fd8;--r2:#d92d20;--r3:#12945e;--r4:#e08a00;--r5:#8a4fd8;--buy:#0e9f6e;--sell:#e8590c;--chase:#7c3aed;--up:#d92d20;--down:#1d5fd6;--eq:#8a94a6;--sel:rgba(31,79,216,.14);--sel-line:rgba(31,79,216,.7);
+  --bar-up:#f4b0aa;--bar-down:#a8c2f7;--bar-eq:#d0d5de;
+  --c-s:#2f4bd8;--c-d:#e89a10;--c-v:#2f8a5b;--c-k:#9a5ce0;--c-p:#1a2130;
+  --f-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-num:"IBM Plex Sans KR","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141c;--card:#171e29;--fg:#e8ecf3;--mute:#93a0b5;--line:#283242;--accent:#7f9cff;--accent-soft:#222f52;--on-accent:#0f141c;
+  --r1:#7f9cff;--r2:#ff6b61;--r3:#3ecf8e;--r4:#ffc247;--r5:#b99bff;--buy:#3ecf8e;--sell:#ffa94d;--chase:#b197fc;--up:#ff6b61;--down:#79a8ff;--eq:#7c879a;--sel:rgba(127,156,255,.2);--sel-line:rgba(127,156,255,.8);
+  --bar-up:#8a3f3f;--bar-down:#35539b;--bar-eq:#3b4556;
+  --c-s:#8aa2ff;--c-d:#ffc04d;--c-v:#5fd08f;--c-k:#c29bff;--c-p:#e8ecf3;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141c;--card:#171e29;--fg:#e8ecf3;--mute:#93a0b5;--line:#283242;--accent:#7f9cff;--accent-soft:#222f52;--on-accent:#0f141c;
+  --r1:#7f9cff;--r2:#ff6b61;--r3:#3ecf8e;--r4:#ffc247;--r5:#b99bff;--buy:#3ecf8e;--sell:#ffa94d;--chase:#b197fc;--up:#ff6b61;--down:#79a8ff;--eq:#7c879a;--sel:rgba(127,156,255,.2);--sel-line:rgba(127,156,255,.8);
+  --bar-up:#8a3f3f;--bar-down:#35539b;--bar-eq:#3b4556;
+  --c-s:#8aa2ff;--c-d:#ffc04d;--c-v:#5fd08f;--c-k:#c29bff;--c-p:#e8ecf3;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body);
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+h1{font-size:22px;margin:0;font-weight:700;text-wrap:balance}
+.sub{margin:2px 0 0;color:var(--mute);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}@media (max-width:600px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile span{font-size:12px;color:var(--mute)}
+.tile b{font:600 22px/1.2 var(--f-num);font-variant-numeric:tabular-nums}
+.tile small{font:500 12px var(--f-num);font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.down{color:var(--down)}.eq{color:var(--eq)}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.ctrl.yr{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px}
+.yl{font-size:12px;color:var(--mute);white-space:nowrap}
+#panl{grid-column:1/-1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;border:0;background:var(--card);color:var(--mute);padding:7px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg button:focus-visible,.leg button:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pan{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px}
+.pan input{flex:1;min-width:0;accent-color:var(--accent)}
+.pan output{font:500 12px var(--f-num);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sigbox{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px}.sgh{font-weight:600;margin-bottom:4px}.sgh small{display:block;font-weight:400;color:var(--mute);font-size:11.5px;margin-top:2px}.sgr{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;padding:3px 0;border-top:1px solid var(--line)}.sgr b{font:600 12px var(--f-num);min-width:58px}.sg{display:inline-block;padding:1px 8px;border-radius:10px;border:1px solid var(--line);font-weight:600}.sg.hold{border-style:dashed;color:var(--mute)}.sg.hot{color:var(--sell);border-color:var(--sell)}.sg.good{color:var(--buy);border-color:var(--buy)}
+.leg2{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--mute)}.leg2 span{display:inline-flex;align-items:center;gap:5px}.leg2 i{width:14px;height:10px;border-radius:2px;opacity:.35;display:inline-block}.leg2 i.none{border:1px dashed var(--mute);opacity:1}.leg2 b{color:#fff;font-size:10.5px;padding:1px 5px;border-radius:2px}
+.leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+.leg button{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--fg);cursor:pointer;padding:2px 0}
+.leg i{width:18px;height:0;border-top:3px solid var(--c);display:inline-block;border-radius:2px}
+.leg i.bar{height:10px;border:0;background:linear-gradient(90deg,var(--bar-up) 50%,var(--bar-down) 50%);width:16px;border-radius:2px}
+.leg button[aria-pressed="false"]{opacity:.4;text-decoration:line-through}
+.cbox{position:relative}.cbox.top{height:300px}.cbox.bot{height:400px}
+@media (max-width:600px){.cbox.top{height:260px}.cbox.bot{height:340px}.tile b{font-size:18px}h1{font-size:19px}}
+.tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;padding-bottom:3px}
+.tabs button{flex:0 0 auto;font:inherit;border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:8px;padding:6px 12px;cursor:pointer;font-variant-numeric:tabular-nums}
+.tabs button+button.sep{margin-left:8px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tabs button:focus-visible,.multi input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.multi{display:inline-flex;gap:6px;align-items:center;color:var(--mute);font-size:13px;cursor:pointer}
+#panl{font:500 12px var(--f-num);color:var(--mute);white-space:nowrap;font-variant-numeric:tabular-nums}
+.period{position:relative}
+.upw{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:10px}.upw .pbtn{font-size:13px;padding:7px 12px;color:var(--accent)}#ust{font-size:12px;color:var(--mute)}
+.rbtn .ic{color:var(--accent)}
+.pop.reg{width:min(360px,calc(100vw - 32px))}
+.pop.reg .list button{text-align:left;white-space:nowrap;padding:9px 12px 9px 16px;font-family:inherit;font-weight:500}
+.pop.reg #listSi button{color:var(--fg)}
+.pop.reg .list button[aria-selected="true"]{font-weight:700}
+.pop.reg .cols{grid-template-columns:130px 1fr}
+.pbtn{display:inline-flex;align-items:center;gap:10px;font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;text-align:left}
+.pbtn svg{flex:none}.pbtn .ic{color:var(--accent)}.pbtn .chev{color:var(--mute);transition:transform .15s}
+.pbtn[aria-expanded="true"]{border-color:var(--accent)}.pbtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.pl{display:flex;flex-direction:column;line-height:1.2}.pl small{font-size:11px;color:var(--mute)}.pl b{font:600 15px var(--f-num);font-variant-numeric:tabular-nums}
+.pop{position:absolute;z-index:5;top:calc(100% + 6px);left:0;width:min(360px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-size:15px}
+.ph button{border:0;background:none;color:var(--mute);cursor:pointer;padding:4px;display:inline-flex;border-radius:6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.col{min-width:0}.col+.col{border-left:1px solid var(--line)}
+.ch{text-align:center;font-weight:500;font-size:13px;padding:8px;background:var(--bg);border-bottom:1px solid var(--line)}
+.list{height:264px;overflow-y:auto;padding:4px 0}
+.list button{display:block;width:100%;font:500 15px var(--f-num);color:var(--mute);background:none;border:0;padding:9px 0;text-align:center;cursor:pointer;font-variant-numeric:tabular-nums}
+.list button:hover{background:var(--bg)}
+.list button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pbtn:focus-visible,.ph button:focus-visible,.list button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pf{display:grid;grid-template-columns:1fr 1fr;background:var(--accent);color:var(--on-accent);font:600 15px var(--f-num);text-align:center;font-variant-numeric:tabular-nums}
+.pf span{padding:9px 0}.pf span+span{border-left:1px solid rgba(128,128,128,.35)}
+.note{margin:0;color:var(--mute);font-size:12.5px;line-height:1.7}
+.note b{color:var(--fg);font-weight:500}
+
+.mtabs{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:0}
+.mtabs a{font:600 15px var(--f-body);color:var(--mute);text-decoration:none;padding:10px 16px;border-bottom:3px solid transparent;margin-bottom:-1px}
+.mtabs a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent)}
+.mtabs a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+
+.cmpbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cmpbar select{font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+.cmpbar .btn{font:inherit;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+.cmpbar .btn:disabled{opacity:.4;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 10px;font-size:13px;background:var(--card)}
+.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.chip[data-ck]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}.chip.drag{cursor:grabbing;box-shadow:0 2px 10px rgba(0,0,0,.25);opacity:.9}.chip button{font:inherit;border:0;background:none;color:var(--mute);cursor:pointer;padding:0 4px;font-size:15px;line-height:1}
+.cgrid[hidden]{display:none}.cgrid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}.cpan{display:block;border:1px solid var(--line);border-radius:10px;padding:6px 10px 4px;min-width:0}.ph2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ph2 i{width:10px;height:10px;border-radius:50%}.ph2 span{color:var(--mute);font-size:12px}.cmpbox.p{height:190px;margin-top:2px}.cmpbox.p2{height:250px;margin-top:0}.ph2 b{font-size:14px}.psum{color:var(--mute);font-size:12px;margin-top:6px}
+.cmpbox{position:relative;height:300px;margin-top:12px}
+.cmpbox.s{height:240px}
+.ctitle{font:600 14px var(--f-body);margin-top:14px}
+.ct{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.ct th,.ct td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.ct th:first-child,.ct td:first-child{text-align:left}
+.ct th{color:var(--mute);font-weight:600}
+.ct .up{color:var(--up)}.ct .down{color:var(--down)}
+.view{display:flex;flex-direction:column;gap:12px;min-width:0}.view[hidden]{display:none}
+.ovbar{display:none}
+.spop{position:fixed;z-index:80;max-width:min(320px,calc(100vw - 16px));background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.22);padding:10px 12px;font:13px/1.5 var(--f-body);pointer-events:none}
+.spop.fin{pointer-events:auto}
+.spop[hidden]{display:none}
+.spop .h{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700;margin-bottom:4px}
+.spop .h button{font:inherit;border:0;background:none;color:var(--mute);cursor:pointer;padding:0 2px;font-size:16px;line-height:1}
+.spop dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-variant-numeric:tabular-nums}
+.spop dt{color:var(--mute);white-space:nowrap}.spop dd{margin:0;font-family:var(--f-num);text-align:right;white-space:nowrap}
+.spop dd small{display:block;font-size:12px}
+.spop .f{margin-top:6px;font-size:11px;color:var(--mute)}
+.view.ov{position:fixed;inset:0;z-index:50;background:var(--bg);overflow:auto;gap:12px;padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,calc((100vw - 1180px)/2)) 40px}
+.view.ov .ovbar{display:flex;position:sticky;top:0;z-index:3;padding:6px 0;background:var(--bg)}
+table.at td.nm{cursor:pointer}table.at td.nm:hover{color:var(--accent);text-decoration:underline}
+.ctl2{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
+.fl{display:flex;flex-direction:column;gap:4px;min-width:0}.fl>small{font-size:11px;color:var(--mute)}
+.aw{position:relative}
+.apop{position:absolute;z-index:6;top:calc(100% + 6px);left:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow:hidden}
+.apop.reg2{width:min(440px,calc(100vw - 32px))}.apop.bm{width:min(260px,calc(100vw - 32px))}
+.apop .cols{grid-template-columns:130px 1fr}.apop.bm .cols{grid-template-columns:1fr 1fr}
+.apop .list{height:300px}
+.apop .list button{white-space:nowrap}
+.gi{display:flex!important;justify-content:space-between;align-items:center;gap:6px;text-align:left!important;padding:9px 12px 9px 16px!important;font-family:var(--f-body)!important;font-weight:500!important;color:var(--fg)!important}
+.gi em{font:500 11px var(--f-num);font-style:normal;color:var(--mute)}
+.gi[aria-selected="true"]{background:var(--accent-soft)!important;color:var(--accent)!important;font-weight:700!important}
+.ck{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:14px}
+.ck:hover{background:var(--bg)}.ck input{accent-color:var(--accent);width:16px;height:16px;flex:none}
+.ck.all{border-bottom:1px solid var(--line);font-weight:700;position:sticky;top:0;background:var(--card);z-index:1}
+.apop .pf2{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--mute)}
+.apop .pf2 button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:5px 12px;cursor:pointer}
+.apop .pf2 button.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.twrap{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table.at{border-collapse:separate;border-spacing:0;font:12.5px/1.35 var(--f-num);font-variant-numeric:tabular-nums;min-width:100%}
+table.at th,table.at td{padding:6px 9px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);white-space:nowrap;text-align:right;background:var(--card)}
+table.at thead th{position:sticky;background:var(--bg);color:var(--fg);font-weight:600;text-align:center;z-index:2}
+table.at thead tr:first-child th{top:0;height:32px;color:var(--accent);background:var(--accent-soft)}
+table.at thead tr:nth-child(2) th{top:32px;cursor:pointer;user-select:none}
+table.at thead tr:nth-child(2) th:hover{background:var(--line)}
+table.at th.nm,table.at td.nm{position:sticky;left:0;z-index:1;text-align:left;font-family:var(--f-body);min-width:150px;box-shadow:1px 0 0 var(--line)}
+table.at thead th.nm{z-index:4}
+table.at thead tr:nth-child(2) th{height:32px}
+table.at thead tr.flt th{top:64px;padding:3px 3px;cursor:default;background:var(--bg);font-weight:400}
+table.at thead tr.flt input{display:block;width:100%;min-width:52px;box-sizing:border-box;margin:1px 0;padding:2px 4px;font:12px var(--f-num);border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+table.at thead tr.flt th.nm input{min-width:90px}
+#aFclr{margin-left:8px;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--accent);cursor:pointer}
+table.at td.nm{font-weight:500}
+table.at td.c{text-align:center}
+table.cond{border-collapse:collapse;width:100%;min-width:640px;font-size:12.5px;line-height:1.45}
+table.cond th,table.cond td{border:1px solid var(--line);padding:7px 9px;text-align:center;vertical-align:middle;background:var(--card)}
+table.cond thead th{background:var(--accent-soft);color:var(--accent);font-weight:600}
+table.cond tbody th{background:var(--bg);color:var(--fg);font-weight:600;white-space:nowrap}
+table.cond td.f{text-align:left;min-width:260px}
+table.cond td:not(.f){white-space:nowrap}
+#aCond ul.cl{margin:12px 0 0;padding-left:18px;display:grid;gap:5px;font-size:12.5px;line-height:1.55;color:var(--fg)}
+#aCond ul.cl b{color:var(--accent)}
+table.at td.bs,table.at thead th.bs{background-image:linear-gradient(var(--bs),var(--bs))}
+table.at thead th.bs{font-weight:700;color:var(--fg)}
+:root{--bs:rgba(255,196,0,.30)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bs:rgba(255,196,0,.22)}}
+:root[data-theme="dark"]{--bs:rgba(255,196,0,.22)}
+table.at td.up{color:var(--up)}table.at td.down{color:var(--down)}
+table.at .ar{font-size:10px;margin-left:3px;color:var(--accent)}
+table.at tbody tr:hover td{filter:brightness(.96)}
+.ainfo{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between}
+.ainfo b{font-size:15px}
+</style>
+<main>
+  <nav class="mtabs" aria-label="화면 선택"><a href="#analysis" id="tabAna" aria-current="page">지역분석</a><a href="#flow" id="tabFlow">지소지수 흐름</a><a href="#compare" id="tabCmp">지역비교</a></nav>
+  <div class="view" id="viewFlow" hidden>
+  <div class="ovbar" id="ovbar"><button type="button" class="pbtn" id="ovBack">← 지역분석으로 돌아가기</button></div>
+  <header>
+    <h1 id="h1">종로구 지소지수 흐름</h1>
+    <p class="sub" id="sub">서울 종로구</p>
+    <div class="upw" id="upw" hidden><button type="button" class="pbtn" id="ubtn">엑셀 올려서 데이터 갱신</button><input type="file" id="ufile" accept=".xlsx,.xlsm" hidden><span id="ust" role="status"></span></div>
+  </header>
+  <section class="card tiles" aria-label="최근 월 요약">
+    <div class="tile"><span id="t0l">최근 월</span><b id="t0">-</b><small>&nbsp;</small></div>
+    <div class="tile"><span>매매평단가</span><b id="t1">-</b><small id="t1d">&nbsp;</small></div>
+    <div class="tile"><span>월별지소지수</span><b id="t2">-</b><small id="t2d">&nbsp;</small></div>
+    <div class="tile"><span id="t3l">전년도인구수</span><b id="t3">-</b><small id="t3d">&nbsp;</small></div>
+  </section>
+  <section class="card">
+    <div class="ctrl">
+      <div class="period" id="regw">
+        <button type="button" class="pbtn rbtn" id="rbtn" aria-haspopup="dialog" aria-expanded="false">
+          <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span class="pl"><small>지역</small><b id="rval">-</b></span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="pop reg" id="rpop" role="dialog" aria-label="지역 선택" hidden>
+          <div class="ph"><b>지역</b></div>
+          <div class="cols">
+            <div class="col"><div class="list" id="listSi" role="listbox" aria-label="시도"></div></div>
+            <div class="col"><div class="list" id="listGu" role="listbox" aria-label="시군구"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="period">
+        <button type="button" class="pbtn" id="pbtn" aria-haspopup="dialog" aria-expanded="false">
+          <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+          <span class="pl"><small>기간</small><b id="pval">-</b></span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="pop" id="pop" role="dialog" aria-label="기간 선택" hidden>
+          <div class="ph"><b>기간</b><button type="button" id="preset" aria-label="기본 기간으로 되돌리기" title="기본 기간으로 되돌리기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button></div>
+          <div class="cols">
+            <div class="col"><div class="ch">시작(년도)</div><div class="list" id="listA" role="listbox" aria-label="시작 연도"></div></div>
+            <div class="col"><div class="ch">종료(년도)</div><div class="list" id="listB" role="listbox" aria-label="종료 연도"></div></div>
+          </div>
+          <div class="pf"><span id="fA"></span><span id="fB"></span></div>
+        </div>
+      </div>
+      <output id="panl"></output>
+    </div>
+    <div class="cbox top"><canvas id="cvT" role="img" aria-label="매매평단가 월별 선 그래프와 3개월 추이 화살표"></canvas></div>
+    <div class="cbox bot"><canvas id="cvB" role="img" aria-label="지수별 선 그래프와 지소지수 합계 막대 그래프"></canvas></div>
+    <div class="leg" id="leg"></div>
+    <div id="sigBox" class="sigbox"></div>
+    <div class="leg2" id="leg2"><span><i style="background:var(--up)"></i>상승장(7개월 이상)</span><span><i style="background:var(--down)"></i>하락장(7개월 이상)</span><span><i class="none"></i>보합장(배경 없음)</span><span><b style="background:var(--buy)">매수</b>매수기준월(점선=확정 대기)</span><span><b style="background:var(--sell)">매도</b>매도기준월(점선=확정 대기)</span><span><b style="background:var(--chase)">추격</b>추격매수기준월(점선=미확정)</span></div>
+    <p class="note" style="margin-top:8px">그래프를 가로로 드래그하면 마우스 옆에 그 구간의 매매가·전세가 변동이 뜹니다.</p>
+  </section>
+  <section class="card">
+    <p class="note"><b>맨 위</b> 매매평단가 선과 선 위의 숫자(매월 전월 대비 변동, <span class="up">빨강 상승</span> · <span class="down">파랑 하락</span>).
+    <b>선 바로 아래</b> 각 달 점 아래에 다음 3개월 평단가의 평균이 해당 월 평단가보다 높으면 <span class="up">위쪽 화살표(UP)</span>, 낮으면 <span class="down">아래쪽 화살표(DOWN)</span>(예: 1월은 2~4월 평균과 1월을 비교).
+    <b>아래 그래프</b> 선은 공급·수요·거래량·매수심리 지수(1~5점), 막대는 네 지수의 합계(정수로 반올림)이고, 색은 그 달 평단가 변동에 따라 <span class="up">양수 빨강</span> · <span class="down">음수 파랑</span> · 0 회색입니다. <b>기간 선택</b> 기간 버튼을 누르면 시작·종료 연도 목록이 열리고, 연도를 누르는 즉시 그래프가 바뀝니다.</p>
+  </section>
+  </div>
+  <div class="view" id="viewAna">
+    <header>
+      <h1>지역분석</h1>
+      <p class="sub" id="aSub">기준시점의 평단가·지소지수·거래량·공급·인구를 지역별로 한 표에 모아 봅니다.</p>
+    </header>
+    <section class="card">
+      <div class="ctl2">
+        <div class="fl"><small>지역 (중복 선택)</small>
+          <div class="aw" id="aRegW">
+            <button type="button" class="pbtn" id="aRegB" aria-haspopup="dialog" aria-expanded="false">
+              <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="pl"><b id="aRegV">-</b></span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="apop reg2" id="aRegP" role="dialog" aria-label="지역 선택" hidden>
+              <div class="cols"><div class="col"><div class="list" id="aGrp" role="listbox" aria-label="시도"></div></div><div class="col"><div class="list" id="aList"></div></div></div>
+              <div class="pf2"><span id="aCnt"></span><span style="display:flex;gap:6px"><button type="button" id="aClr">전체 해제</button><button type="button" class="pri" id="aOk">닫기</button></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="fl"><small>기준시점</small>
+          <div class="aw" id="aBaseW">
+            <button type="button" class="pbtn" id="aBaseB" aria-haspopup="dialog" aria-expanded="false">
+              <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+              <span class="pl"><b id="aBaseV">-</b></span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="apop bm" id="aBaseP" role="dialog" aria-label="기준시점 선택" hidden>
+              <div class="cols"><div class="col"><div class="ch">연도</div><div class="list" id="aY" role="listbox" aria-label="연도"></div></div><div class="col"><div class="ch">월</div><div class="list" id="aM" role="listbox" aria-label="월"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="fl"><small>인구수</small>
+          <div class="seg" id="aPop" role="group" aria-label="인구수 조건"></div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="ainfo"><b id="aTitle">-</b><span class="note" id="aN">-</span><button type="button" id="aFclr" hidden></button></div>
+      <div class="twrap" id="aWrap" tabindex="0" aria-label="지역별 분석 표"><table class="at" id="aTab"></table></div>
+    </section>
+    <section class="card"><p class="note" id="aNote"></p></section>
+    <section class="card" id="aCond">
+      <h2 class="ctitle" style="margin-top:0">각 지수 산출 조건</h2>
+      <p class="note">월별 지소지수는 아래 4개 지수의 합계이고, 지수마다 1~5점입니다. 점수가 높을수록 좋은(매수에 유리한) 방향입니다.</p>
+      <div class="twrap" tabindex="0" aria-label="지수 산출 조건 표">
+        <table class="cond">
+          <thead><tr><th>지수</th><th>계산식</th><th>1점</th><th>2점</th><th>3점</th><th>4점</th><th>5점</th></tr></thead>
+          <tbody>
+            <tr><th>공급지수</th><td class="f">연별입주량 ÷ 연별수요량 × 100 (소수 첫째 자리에서 반올림)으로 점수를 정한 뒤, 그 달 입주량 ÷ 그 해 입주량 비율을 뺍니다.</td><td>201 이상</td><td>151~200</td><td>51~150</td><td>1~50</td><td>1 미만</td></tr>
+            <tr><th>수요지수</th><td class="f">그 해 1월부터 해당 월까지의 순이동 누적 ÷ 전년도 인구수 × 100 (소수 둘째 자리 반올림, %)</td><td>−1.99 미만</td><td>−1.99 ~ −0.5 미만</td><td>−0.5 ~ 0.51 미만</td><td>0.51 ~ 2 미만</td><td>2 이상</td></tr>
+            <tr><th>거래량지수</th><td class="f">그 달 매매거래량 ÷ 월평균 매매거래량 × 100 (반올림, %)</td><td>70 미만</td><td>70~89</td><td>90~109</td><td>110~129</td><td>130 이상</td></tr>
+            <tr><th>매수심리지수</th><td class="f">그 달 시장강도 (부동산지인 기준, 반올림)</td><td>−50 이하</td><td>−49~0</td><td>1~50</td><td>51~100</td><td>101 이상</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="cl">
+        <li><b>지소지수(합계)</b> 4개 지수를 더해 정수로 반올림합니다(4~20). 시장강도가 없는 달은 0으로 처리합니다.</li>
+        <li><b>공급지수 세부</b> 공급지수는 소수 그대로 계산하고 합계에서만 반올림합니다. 연별수요량이 없으면 기준 점수를 5로 두고 그 달 입주 비율을 뺍니다.</li>
+        <li><b>자료가 없는 지수</b> 거래량·시장강도처럼 값이 없어 계산이 안 되면 0점으로 처리합니다.</li>
+        <li><b>거래율</b> 그 달 매매거래량 ÷ 월평균 매매거래량 × 100 입니다.</li>
+        <li><b>변동폭</b> 해당 월 값에서 바로 전월 값을 뺀 값입니다. 시장강도·매매시세·전세가율에 모두 같습니다.</li>
+        <li><b>25평·32평 기준 투자금</b> 기준월 평단가 × 평수에서 전세값(평단가 × 평수 × 전세가율)을 뺀 금액을 원 단위로 보여줍니다. 평단가는 만원 단위 값에 10,000을 곱합니다.</li>
+        <li><b>인구증감율</b> 최근 3개년 인구 평균 ÷ 4년 전 인구입니다. 공급 대비 수요는 연별입주량 ÷ 연별수요량입니다.</li>
+        <li><b>신뢰도 점검</b> 24개월 상승률·6개월 변화·24개월 고점대비는 기준월 평단가를 비교한 %이고, 매수 점수(0~4)는 수도권(서울·경기·인천) +1, 예외 매수기준월 +1, 매수심리지수 4점 이상 +1, 6개월 변화 0% 이상 +1 입니다(매수확정 후 12개월 이내만 계산).</li>
+        <li><b>규칙 승률</b> 지소지수 활용법의 매수·매도 기준월 신호가 12개월 안에 맞은 비율입니다.</li>
+      </ul>
+    </section>
+  </div>
+  <div class="view" id="viewCmp" hidden>
+    <header><h1>지역비교</h1><p class="sub">여러 지역의 지소지수 흐름을 한 화면에서 나란히(또는 겹쳐서) 봅니다. 시도 전체 버튼으로 그 시도의 모든 구·군을 한 번에 띄울 수 있고, 지역 이름표를 끌어서 놓으면 그 순서대로 아래 그래프가 다시 배열됩니다.</p></header>
+    <section class="card">
+      <div class="cmpbar">
+        <select id="cSi" aria-label="시도"></select><select id="cGu" aria-label="시군구"></select>
+        <button type="button" class="btn" id="cAdd">추가</button><button type="button" class="btn" id="cAll" title="선택한 시도의 모든 시군구를 한 번에 표시">시도 전체</button>
+        <span style="width:8px"></span>
+        <select id="cY0" aria-label="시작 연도"></select><span>~</span><select id="cY1" aria-label="종료 연도"></select>
+        <select id="cView" aria-label="보기 방식"><option value="side">나란히 보기 (지소지수 흐름)</option><option value="over">겹쳐 보기</option></select><select id="cMode" aria-label="평단가 표시"><option value="idx">평단가: 시작월=100</option><option value="raw">평단가: 원값(만원)</option></select>
+      </div>
+      <div class="chips" id="cChips"></div>
+      <div id="cOver">
+      <div class="ctitle" id="cT1">매매평단가</div>
+      <div class="cmpbox"><canvas id="cvC1" role="img" aria-label="지역별 매매평단가 비교 선 그래프"></canvas></div>
+      <div class="ctitle">월별 지소지수(합계)</div>
+      <div class="cmpbox s"><canvas id="cvC2" role="img" aria-label="지역별 지소지수 합계 비교 선 그래프"></canvas></div>
+      </div>
+      <div id="cSide" class="cgrid"></div>
+      <div class="leg2" id="cLeg"><span><i style="background:var(--up)"></i>상승장</span><span><i style="background:var(--down)"></i>하락장</span><span><i class="none"></i>보합장</span><span><b style="background:var(--buy)">매수</b>매수기준월</span><span><b style="background:var(--sell)">매도</b>매도기준월</span><span><b style="background:var(--chase)">추격</b>추격매수기준월</span><span>막대=월별 지소지수(붉은색 상승월·푸른색 하락월), 선=공급·수요·거래량·매수심리 지수</span></div>
+    </section>
+    <section class="card">
+      <div class="ctitle" style="margin-top:0" id="cT3">기간 요약</div>
+      <div class="twrap" tabindex="0" aria-label="지역비교 요약 표"><table class="ct" id="cTab"></table></div>
+      <p class="note" style="margin-top:8px">기준월(매수·매도·추격)은 지소지수 활용법 규칙으로 계산한 값입니다. '기준 월'은 지소지수가 있는 마지막 달이고, 마지막 평단가·지소지수·매수심리·장·최근 기준월은 모두 그 달 기준입니다.</p>
+    </section>
+  </div>
+</main>
+  <div class="spop" id="selPop" role="status" aria-live="polite" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const SEED=__DATA__;
+let ALL=SEED;
+const DATA={m:ALL.m};let N=DATA.m.length,REGS=[],sido="",region="",price,tot,dP,tr,dT;
+const sortKeys=()=>Object.keys(ALL.r).sort((a,b)=>ALL.r[a].o-ALL.r[b].o);
+function pickDefault(){REGS=sortKeys();if(!ALL.r[region])region=ALL.r["서울 종로구"]?"서울 종로구":REGS[0];sido=ALL.r[region].sido}
+pickDefault();
+function setData(){const r=ALL.r[region];["s","d","v","k"].forEach(k=>DATA[k]=r[k]);price=r.p;tot=r.t.map(v=>Math.round(v));
+  dP=price.map((v,i)=>i>0&&v!=null&&price[i-1]!=null?v-price[i-1]:null);
+  tr=price.map((v,i)=>(i+3<N&&v!=null&&price[i+1]!=null&&price[i+2]!=null&&price[i+3]!=null)?(price[i+1]+price[i+2]+price[i+3])/3-v:null);
+  dT=tot.map((v,i)=>i>0?v-tot[i-1]:0)}
+setData();
+const $=s=>document.querySelector(s),fmt=v=>v==null?"-":Number(v).toLocaleString("ko-KR");
+const sg=v=>v>0?"+"+fmt(v):v<0?"−"+fmt(-v):"0";
+let C={},cT=null,cB=null,win=N,start=0;
+function readC(){const cs=getComputedStyle(document.documentElement);
+  ["sel","sel-line","buy","sell","chase","up","down","eq","fg","mute","line","bar-up","bar-down","bar-eq","c-s","c-d","c-v","c-k","c-p","f-num"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim())}
+readC();
+const SERIES=[
+ {name:"월별지소지수(합계)",bar:true,ch:"B",di:0},
+ {name:"공급지수",c:"c-s",ch:"B",di:1,k:"s"},{name:"수요지수",c:"c-d",ch:"B",di:2,k:"d"},
+ {name:"거래량지수",c:"c-v",ch:"B",di:3,k:"v"},{name:"매수심리지수",c:"c-k",ch:"B",di:4,k:"k"},
+ {name:"매매평단가",c:"c-p",ch:"T",di:0}];
+const LEG=[5,1,2,3,4,0];
+$("#leg").innerHTML=LEG.map(i=>{const s=SERIES[i];return `<button type="button" data-i="${i}" aria-pressed="true"><i class="${s.bar?"bar":""}" style="--c:var(--${s.c||"eq"})"></i>${s.name}</button>`}).join("");
+$("#leg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const s=SERIES[+b.dataset.i],ch=s.ch==="T"?cT:cB;if(!ch)return;
+  const on=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",on);ch.setDatasetVisibility(s.di,on);ch.update("none")});
+function bounds(){const e=Math.min(N-1,start+win-1);let mn=1e9,mx=-1e9;
+  for(let i=start;i<=e;i++){const v=price[i];if(v!=null){mn=Math.min(mn,v);mx=Math.max(mx,v)}}
+  if(mn>mx){mn=0;mx=1}const r=(mx-mn)||1;return{min:mn-r*.2,max:mx+r*.22}}
+function arrow(ctx,x,y,up,col){const h=6;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.8;ctx.beginPath();
+  ctx.moveTo(x,y+(up?h:-h));ctx.lineTo(x,y+(up?-h+2:h-2));ctx.stroke();ctx.beginPath();
+  const t=y+(up?-h:h),d=up?4.5:-4.5;ctx.moveTo(x,t);ctx.lineTo(x-4,t+d);ctx.lineTo(x+4,t+d);ctx.closePath();ctx.fill()}
+/* 숫자 라벨: 칸이 넉넉하면 가로, 좁으면 세로로 눕혀 매월 모두 표시, 그래도 좁으면 간격을 두고 표시 */
+function labels(ctx,gap,lo,hi,list){ // list: i => {text,x,y,color}
+  ctx.font=`600 10.5px ${C["f-num"]}`;let wMax=0;
+  for(let i=lo;i<=hi;i++){const o=list(i);if(o)wMax=Math.max(wMax,ctx.measureText(o.text).width)}
+  const horiz=gap>=wMax+3,vert=!horiz&&gap>=11,k=horiz||vert?1:Math.max(1,Math.ceil(11/gap));
+  for(let i=hi;i>=lo;i--){if((hi-i)%k)continue;const o=list(i);if(!o)continue;
+    ctx.fillStyle=o.color;
+    if(horiz){ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText(o.text,o.x,o.y-5)}
+    else{ctx.save();ctx.translate(o.x,o.y-5);ctx.rotate(-Math.PI/2);ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillText(o.text,0,0);ctx.restore()}}}
+function range(ch){const x=ch.scales.x;return{x,lo:Math.max(0,Math.ceil(x.min)),hi:Math.min(N-1,Math.floor(x.max)),gap:Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0))}}
+function hlabels(ctx,gap,lo,hi,list){ctx.font=`600 10.5px ${C["f-num"]}`;ctx.textAlign="center";ctx.textBaseline="bottom";
+  for(let i=hi;i>=lo;i--){const o=list(i);if(!o)continue;ctx.fillStyle=o.color;ctx.fillText(o.text,o.x,o.y-5)}}
+let selA=null,selB=null;
+function lastP(R){for(let i=R.p.length-1;i>=0;i--)if(R.p[i])return i;return -1}
+function sigList(R){if(R._sg)return R._sg;const p=R.p,L=lastP(R),metro=["서울","경기","인천"].includes(R.sido),out={sell:[],buy:[]};
+  (R.sm||[]).forEach(([c,ok],n)=>{const kd=(R.smk||[])[n]||"";let pk=null;for(let i=Math.max(0,c-12);i<=c;i++)if(p[i]&&(pk==null||p[i]>=p[pk]))pk=i;
+    const e=Math.min(c+3,L),run=pk!=null&&pk>=24&&p[pk-24]?(p[pk]/p[pk-24]-1)*100:null,dd=pk!=null&&p[e]&&p[pk]?(p[e]/p[pk]-1)*100:null;
+    let v="판단불가",cls="na",suf="";
+    if(run!=null&&dd!=null){if(run<15||dd>-1){v="보류 권장";cls="hold";suf=" ⚠"}else if(run>=30&&dd<=-2){v="과열 후 조정";cls="hot";suf=" ●"}else v="보통"}
+    out.sell.push({c,ok,kd,run,dd,v,cls,suf,e})});
+  (R.bm||[]).forEach(([c,ok],n)=>{const kd=((R.bmk||[]).find(x=>x[0]===c)||[])[1]||"";const e=Math.min(c+3,L);
+    const k=R.k[e],m6=e>=6&&p[e]&&p[e-6]?(p[e]/p[e-6]-1)*100:null;
+    const pts=[metro,kd==="예외",k!=null&&k>=4,m6!=null&&m6>=0],sc=pts.filter(Boolean).length;
+    const v=sc>=3?"신뢰 높음":sc===2?"보통":"신뢰 낮음",cls=sc>=3?"good":sc===2?"na":"hold";
+    out.buy.push({c,ok,kd,sc,pts,k,m6,v,cls,suf:ok?" "+sc+"점":"",e})});
+  R._sg=out;return out}
+function renderSig(){const box=$("#sigBox");if(!box)return;const R=ALL.r[region],S=sigList(R),e=Math.min(N-1,start+win-1);
+  const f=(v,d=1)=>v==null?"-":(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(d)+"%";
+  const rows=[];
+  S.sell.forEach(x=>{if(x.c>=start&&x.c<=e&&x.ok)rows.push([x.c,`<span class="sg ${x.cls}">매도${x.kd&&/^T/.test(x.kd)?" "+x.kd:x.kd?" ("+x.kd+")":""} · ${x.v}</span> 직전 24개월 상승 ${f(x.run)} · 고점 대비 ${f(x.dd)} (확정+3개월 시점)`])});
+  S.buy.forEach(x=>{if(x.c>=start&&x.c<=e&&x.ok)rows.push([x.c,`<span class="sg ${x.cls}">매수${x.kd?" ("+x.kd+")":""} · ${x.sc}점 ${x.v}</span> ${x.pts[0]?"수도권 ✓":"수도권 ✗"} · ${x.pts[1]?"예외 확정 ✓":"예외 확정 ✗"} · 매수심리 ${x.k==null?"-":x.k}${x.pts[2]?" ✓":" ✗"} · 6개월 ${f(x.m6)}${x.pts[3]?" ✓":" ✗"}`])});
+  rows.sort((a,b)=>b[0]-a[0]);
+  box.innerHTML=`<div class="sgh">신호 점검 <small>표시 기간의 확정 신호 · 매도는 24개월 상승률 15% 미만 또는 고점 대비 하락 1% 미만이면 보류 권장(⚠), 24개월 +30% 이상이면서 2% 이상 하락이면 과열 후 조정(●) · 매수는 수도권·예외 확정·매수심리 4 이상·6개월 상승 각 1점</small></div>`+(rows.length?rows.map(r=>`<div class="sgr"><b>${DATA.m[r[0]]}</b>${r[1]}</div>`).join(""):`<div class="sgr" style="color:var(--mute)">표시 기간에 확정된 매수·매도 신호가 없습니다.</div>`)}
+const plugPhase={id:"plugPhase",
+ beforeDatasetsDraw(ch){const R=ALL.r[region];if(!R||!R.ph)return;const x=ch.scales.x,a=ch.chartArea,g=Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0)),c=ch.ctx;
+  c.save();c.beginPath();c.rect(a.left,a.top,a.right-a.left,a.bottom-a.top);c.clip();c.globalAlpha=.10;
+  R.ph.forEach(([t,s,e])=>{const x1=x.getPixelForValue(s)-g/2,x2=x.getPixelForValue(e)+g/2;if(x2<a.left||x1>a.right)return;c.fillStyle=t==="U"?C.up:C.down;c.fillRect(x1,a.top,x2-x1,a.bottom-a.top)});c.restore()},
+ afterDatasetsDraw(ch){const R=ALL.r[region];if(!R)return;const x=ch.scales.x,a=ch.chartArea,c=ch.ctx,top=ch.canvas.id==="cvT";
+  const pl=[];
+  const mk=(list,col,txt0,kd,sx)=>(list||[]).forEach(([i,ok],n)=>{const txt=txt0+(kd&&/^T/.test(kd[n]||"")?" "+kd[n]:"")+(sx&&sx[n]?sx[n].suf:"");const px=x.getPixelForValue(i);if(px<a.left||px>a.right)return;
+    c.save();c.strokeStyle=col;c.lineWidth=1.6;c.setLineDash(ok?[]:[4,3]);c.beginPath();c.moveTo(px,a.top);c.lineTo(px,a.bottom);c.stroke();c.setLineDash([]);
+    if(top){c.font="700 10.5px "+C["f-num"];const w=c.measureText(txt).width+8;let lx=Math.min(Math.max(px-w/2,a.left),a.right-w);let rw=0;while(pl.some(o=>o.r===rw&&lx<o.x2+2&&lx+w>o.x1-2))rw++;pl.push({r:rw,x1:lx,x2:lx+w});const ly=a.top+rw*17;c.fillStyle=col;c.fillRect(lx,ly,w,15);c.fillStyle="#fff";c.textAlign="left";c.textBaseline="middle";c.fillText(ok?txt:txt+"?",lx+4,ly+8)}
+    c.restore()});
+  mk(R.bm,C.buy,"매수",null,sigList(R).buy);mk(R.sm,C.sell,"매도",R.smk,sigList(R).sell);mk(R.cm,C.chase,"추격")}};
+const plugSel={id:"plugSel",afterDatasetsDraw(ch){
+  if(selA==null||selB==null)return;const lo=Math.min(selA,selB),hi=Math.max(selA,selB);
+  const x=ch.scales.x,a=ch.chartArea,g=Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0));
+  let x1=Math.max(a.left,x.getPixelForValue(lo)-g/2),x2=Math.min(a.right,x.getPixelForValue(hi)+g/2);if(x2<=x1)return;
+  const c=ch.ctx;c.save();c.fillStyle=C["sel"];c.fillRect(x1,a.top,x2-x1,a.bottom-a.top);
+  c.strokeStyle=C["sel-line"];c.lineWidth=1.5;c.beginPath();c.moveTo(x1,a.top);c.lineTo(x1,a.bottom);c.moveTo(x2,a.top);c.lineTo(x2,a.bottom);c.stroke();c.restore()}};
+const plugTop={id:"plugTop",afterDatasetsDraw(ch){
+  const{ctx,chartArea:a,scales:{yP}}=ch;if(!ch.isDatasetVisible(0))return;const{x,lo,hi,gap}=range(ch);ctx.save();
+  hlabels(ctx,gap,lo,hi,i=>{const d=dP[i];if(d==null)return null;
+    return{text:d>0?fmt(d):d<0?"−"+fmt(-d):"0",x:x.getPixelForValue(i),y:yP.getPixelForValue(price[i]),color:d>0?C.up:d<0?C.down:C.eq}});
+  const k=Math.max(1,Math.ceil(11/gap));
+  for(let i=hi;i>=lo;i--){if((hi-i)%k)continue;const s=tr[i];if(s==null||price[i]==null)continue;const px=x.getPixelForValue(i),cy=yP.getPixelForValue(price[i])+13;
+    if(s===0){ctx.fillStyle=C.eq;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("–",px,cy)}else arrow(ctx,px,cy,s>0,s>0?C.up:C.down)}
+  ctx.restore()}};
+const plugBot={id:"plugBot",afterDatasetsDraw(ch){
+  if(!ch.isDatasetVisible(0))return;const{ctx,scales:{yI}}=ch,{x,lo,hi,gap}=range(ch);ctx.save();ctx.fillStyle=C.fg;
+  hlabels(ctx,gap,lo,hi,i=>({text:String(tot[i]),x:x.getPixelForValue(i),y:yI.getPixelForValue(tot[i]),color:C.fg}));ctx.restore()}};
+function barCol(i){const d=dP[i];return d>0?C["bar-up"]:d<0?C["bar-down"]:C["bar-eq"]}
+const fixW=sc=>{sc.width=58};
+function link(src,dst){return(evt,els)=>{if(!dst)return;
+  if(els.length){const i=els[0].index,xx=dst.scales.x.getPixelForValue(i),yy=dst.chartArea.top+30,m=[{datasetIndex:0,index:i}];
+    dst.setActiveElements(m);dst.tooltip.setActiveElements(m,{x:xx,y:yy})}
+  else{dst.setActiveElements([]);dst.tooltip.setActiveElements([],{x:0,y:0})}dst.update("none")}}
+function xScale(show){return{offset:true,min:start,max:start+win-1,grid:{display:false},border:{display:show},
+  ticks:{display:show,autoSkip:false,maxRotation:0,color:()=>C.mute,font:{size:11},
+    callback(v){const m=DATA.m[v];if(!m)return"";const mm=m.slice(5),y=+m.slice(0,4);
+      if(win<=24)return m;if(win<=72)return(mm==="01"||mm==="07")?m:"";if(win<=140)return mm==="01"?m:"";return(mm==="01"&&y%2===0)?m:""}}}}
+function build(){
+  Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;const b=bounds();
+  cT=new Chart($("#cvT"),{type:"line",plugins:[plugPhase,plugTop,plugSel],data:{labels:DATA.m,datasets:[
+    {label:"매매평단가",data:price,yAxisID:"yP",borderColor:()=>C["c-p"],backgroundColor:()=>C["c-p"],borderWidth:2,pointRadius:0,pointHoverRadius:4}]},
+   options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:4,bottom:4}},
+    interaction:{mode:"index",intersect:false},onHover:(e,els)=>link(cT,cB)(e,els),
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it[0].label,
+      label:c=>`${c.dataset.label}: ${fmt(c.raw)}`+(dP[c.dataIndex]!=null?` (${sg(dP[c.dataIndex])})`:""),
+      afterLabel:c=>tr[c.dataIndex]!=null?`다음 3개월 평균 − 현재: ${sg(Math.round(tr[c.dataIndex]*10)/10)}`:""}}},
+    scales:{x:xScale(false),yP:{type:"linear",position:"left",min:b.min,max:b.max,afterFit:fixW,grid:{color:()=>C.line},border:{display:false},
+      ticks:{color:()=>C.mute,maxTicksLimit:5,font:{size:11},callback:v=>fmt(Math.round(v))}}}}});
+  const ls=SERIES.slice(1,5).map(s=>({type:"line",label:s.name,data:DATA[s.k],yAxisID:"yI",borderColor:()=>C[s.c],backgroundColor:()=>C[s.c],borderWidth:2,pointRadius:0,pointHoverRadius:3,cubicInterpolationMode:"monotone",order:1}));
+  cB=new Chart($("#cvB"),{type:"bar",plugins:[plugPhase,plugBot,plugSel],data:{labels:DATA.m,datasets:[
+    {type:"bar",label:"월별지소지수(합계)",data:tot,yAxisID:"yI",backgroundColor:ctx=>barCol(ctx.dataIndex),borderWidth:0,categoryPercentage:1,barPercentage:.82,order:3},...ls]},
+   options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:8,bottom:0}},
+    interaction:{mode:"index",intersect:false},onHover:(e,els)=>link(cB,cT)(e,els),
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it[0].label,
+      label:c=>{const i=c.dataIndex;return c.datasetIndex===0?`${c.dataset.label}: ${c.raw}`+(i>0?` (${dT[i]>0?"+":dT[i]<0?"−":""}${Math.abs(dT[i])})`:""):`${c.dataset.label}: ${c.raw}`},afterLabel:c=>c.datasetIndex===0&&dP[c.dataIndex]!=null?`평단가 변동: ${sg(dP[c.dataIndex])}`:""}}},
+    scales:{x:xScale(true),yI:{type:"linear",position:"left",min:0,max:25,afterFit:fixW,grid:{color:()=>C.line},border:{display:false},
+      ticks:{color:()=>C.mute,stepSize:1,font:{size:9},padding:4}}}}})}
+let YEARS=[...new Set(DATA.m.map(m=>+m.slice(0,4)))];
+let ye=YEARS[YEARS.length-1],ys=Math.max(YEARS[0],ye-(window.innerWidth<600?2:4));
+function applySel(){start=DATA.m.findIndex(m=>+m.slice(0,4)===ys);let e=N-1;
+  for(let i=N-1;i>=0;i--)if(+DATA.m[i].slice(0,4)===ye){e=i;break}win=e-start+1}
+const LA=$("#listA"),LB=$("#listB"),pop=$("#pop"),pbtn=$("#pbtn");
+function scrollSel(l){const it=l.querySelector('[aria-selected="true"]');if(it)l.scrollTop=it.offsetTop-l.clientHeight/2+it.offsetHeight/2}
+function drawTabs(){
+  if(!LA.children.length){const h=YEARS.map(y=>`<button type="button" role="option" data-y="${y}">${y}</button>`).join("");LA.innerHTML=h;LB.innerHTML=h}
+  [[LA,ys],[LB,ye]].forEach(([l,c])=>l.querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",+b.dataset.y===c)));
+  $("#pval").textContent=`${ys}~${ye}`;$("#fA").textContent=ys;$("#fB").textContent=ye}
+LA.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;ys=+b.dataset.y;const cj=ye<ys;if(cj)ye=ys;view();if(cj)scrollSel(LB)});
+LB.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;ye=+b.dataset.y;const cj=ys>ye;if(cj)ys=ye;view();if(cj)scrollSel(LA)});
+pbtn.addEventListener("click",()=>openOnly(pop.hidden?pop:null));
+document.addEventListener("click",e=>{if(e.target.isConnected&&!e.target.closest(".period"))openOnly(null)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){const o=!rpop.hidden?rbtn:!pop.hidden?pbtn:null;if(o){openOnly(null);o.focus()}}});
+$("#preset").addEventListener("click",()=>{ye=YEARS[YEARS.length-1];ys=Math.max(YEARS[0],ye-(window.innerWidth<600?2:4));view();scrollSel(LA);scrollSel(LB)});
+const rpop=$("#rpop"),rbtn=$("#rbtn"),pairs=[[rbtn,rpop],[pbtn,pop]];
+function summary(){const L=N-1,d=dP[L],t=dT[L];
+  $("#h1").textContent=`${ALL.r[region].gu} 지소지수 흐름`;$("#sub").textContent=`${sido} ${ALL.r[region].gu} · ${DATA.m[0]} ~ ${DATA.m[L]}`+(META?` · 데이터 갱신 ${META}`:"");
+  $("#t0").textContent=DATA.m[L];$("#t1").textContent=fmt(price[L]);
+  const t1=$("#t1d");t1.textContent=d==null?" ":`전월 대비 ${sg(d)}`;t1.className=d>0?"up":d<0?"down":"eq";
+  const R=ALL.r[region],y0=+DATA.m[L].slice(0,4),pv=R.pop?R.pop[y0-2006]:null,pp=R.pop?R.pop[y0-2007]:null;
+  $("#t3l").textContent=`전년도인구수 (${y0-1}년)`;$("#t3").textContent=pv?fmt(pv):"-";const t3=$("#t3d");const dp=pv&&pp?pv-pp:null;t3.textContent=dp==null?" ":`전년 대비 ${sg(dp)}`;t3.className=dp>0?"up":dp<0?"down":"eq";
+  $("#t2").textContent=tot[L];const t2=$("#t2d");t2.textContent=`전월 대비 ${t>0?"+":t<0?"−":""}${Math.abs(t)}`;t2.className=t>0?"up":t<0?"down":"eq"}
+let META="";
+function sidos(){const o=[];REGS.forEach(k=>{const s=ALL.r[k].sido;if(!o.includes(s))o.push(s)});return o}
+function drawReg(){$("#listSi").innerHTML=sidos().map(s=>`<button type="button" role="option" data-s="${s}" aria-selected="${s===sido}">${s}</button>`).join("");
+  $("#listGu").innerHTML=REGS.filter(k=>ALL.r[k].sido===sido).map(k=>`<button type="button" role="option" data-g="${k}" aria-selected="${k===region}">${ALL.r[k].gu}</button>`).join("");
+  $("#rval").textContent=`${ALL.r[region].sido} ${ALL.r[region].gu}`}
+function pickRegion(k){region=k;sido=ALL.r[k].sido;setData();
+  cT.data.datasets[0].data=price;cB.data.datasets[0].data=tot;SERIES.slice(1,5).forEach((s,i)=>cB.data.datasets[i+1].data=DATA[s.k]);
+  drawReg();summary();view()}
+$("#listSi").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;sido=b.dataset.s;drawReg()});
+$("#listGu").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;pickRegion(b.dataset.g);openOnly(null)});
+function openOnly(w){pairs.forEach(([b,p])=>{const o=p===w;p.hidden=!o;b.setAttribute("aria-expanded",o)});if(w===pop){scrollSel(LA);scrollSel(LB)}}
+rbtn.addEventListener("click",()=>openOnly(rpop.hidden?rpop:null));
+function view(){applySel();drawTabs();const b=bounds();
+  [cT,cB].forEach(c=>{c.options.scales.x.min=start;c.options.scales.x.max=start+win-1});
+  cT.options.scales.yP.min=b.min;cT.options.scales.yP.max=b.max;cT.update("none");cB.update("none");
+  const e=Math.min(N-1,start+win-1);$("#panl").textContent=`표시 기간 ${DATA.m[start]} ~ ${DATA.m[e]} (${win}개월)`;selRefresh();renderSig()}
+function load(next,meta){
+  selA=selB=null;ALL=next;META=meta||META;DATA.m=ALL.m;N=DATA.m.length;pickDefault();setData();
+  YEARS=[...new Set(DATA.m.map(m=>+m.slice(0,4)))];ye=YEARS[YEARS.length-1];ys=Math.max(YEARS[0],ye-(window.innerWidth<600?2:4));
+  LA.innerHTML="";LB.innerHTML="";
+  if(cT){cT.destroy();cB.destroy()}
+  win=N;start=0;applySel();build();[...$("#leg").querySelectorAll("button")].forEach(b=>b.setAttribute("aria-pressed","true"));
+  drawReg();summary();view();if(window.anaRefresh)anaRefresh()}
+/* ---- 데이터 저장소(db) 연동 + 엑셀 업로드 ---- */
+const sig=o=>JSON.stringify([o.m,Object.keys(o.r).sort().map(k=>{const x=o.r[k];return [k,x.o,x.p,x.t,x.s,x.d,x.v,x.k,x.vol,x.avg,x.mk,x.yi,x.yd,x.pop,x.rt,x.cp]})]);
+let DB=null,curSig=sig(SEED),tmr=0;
+const dk=(s,g)=>(s+"_"+g).replace(/[\/\s]+/g,"_");
+function fromDocs(docs){const r={};let m=null;
+  docs.forEach(d=>{const x=d.data();if(!x||!x.m||!x.p)return;if(!m||x.m.length>m.length)m=x.m;r[x.sido+" "+x.gu]=x});
+  if(!m)return null;Object.keys(r).forEach(k=>{if(r[k].m.length!==m.length)delete r[k]});
+  return Object.keys(r).length?{m,r}:null}
+async function initDb(){
+  const sh=(await claude.use("db").catch(()=>null));if(!sh)return;DB=sh;
+  let meta=null;
+  try{sh.doc("meta/info").onSnapshot(s=>{meta=s.exists?s.data():null;const u=meta&&meta.updatedAt?meta.updatedAt.slice(0,10):"";if(u&&u!==META){META=u;summary()}},()=>{})}catch(e){}
+  try{sh.collection("regions").onSnapshot(snap=>{clearTimeout(tmr);tmr=setTimeout(()=>{
+    const n=fromDocs(snap.docs);if(!n)return;const s=sig(n);if(s===curSig)return;curSig=s;load(n)},500)},()=>{})}catch(e){}
+  try{const u=await claude.use("user");if(u&&u.canEdit&&u.canEdit())$("#upw").hidden=false}catch(e){}}
+function say(t,err){const o=$("#ust");o.textContent=t;o.style.color=err?"var(--down)":"var(--mute)"}
+function shortSido(n){const M={"충청북도":"충북","충청남도":"충남","전라남도":"전남","전북특별자치도":"전북","경상북도":"경북","경상남도":"경남","전남광주통합특별시":"전남광주","경기도":"경기","강원특별자치도":"강원","제주특별자치도":"제주"};return M[n]||n.replace(/(특별자치시|특별자치도|통합특별시|특별시|광역시|도)$/,"")||n}
+function parseBook(buf){
+  const wb=XLSX.read(buf,{type:"array",sheets:["데이터","지소지수","월별추가입력"],cellFormula:false,cellStyles:false,cellNF:false,cellHTML:false});
+  if(!wb.Sheets["데이터"]||!wb.Sheets["지소지수"])throw new Error("'데이터'와 '지소지수' 시트가 있는 파일이 아닙니다.");
+  const rd=n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+  const D=rd("데이터"),G=rd("지소지수");
+  const mAll=D[0].slice(2).map(v=>typeof v==="string"?v.trim():v);
+  if(!/^\d{4}-\d{2}$/.test(mAll[0]||""))throw new Error("1행의 월 표기(예: 2006-01)를 찾지 못했습니다.");
+  const price={},idx={},RB={},EX={};
+  D.slice(1).forEach(r=>{if(r[0]&&r[1]){(RB[r[0]]=RB[r[0]]||{})[r[1]]=r.slice(2);if(r[1]==="매매평단가")price[r[0]]=r.slice(2)}});
+  if(wb.Sheets["월별추가입력"])rd("월별추가입력").slice(1).forEach(r=>{if(r[0]&&r[1])(EX[r[0]]=EX[r[0]]||{})[r[1]]=r.slice(2)});
+  const IK={"공급지수":"s","수요지수":"d","거래량지수":"v","매수심리지수":"k","합계":"t"};let nums=0;
+  G.slice(1).forEach(r=>{const k=IK[r[1]];if(!k||!r[0])return;(idx[r[0]]=idx[r[0]]||{})[k]=r.slice(2);r.slice(2).forEach(v=>{if(typeof v==="number")nums++})});
+  if(!nums)throw new Error("지소지수 시트에 계산된 값이 없습니다. 엑셀에서 파일을 열어 저장한 뒤 다시 올려주세요.");
+  let last=-1;const order=[];
+  G.slice(1).forEach(r=>{if(r[1]==="공급지수"&&r[0]&&!order.includes(r[0]))order.push(r[0])});
+  const names=order.filter(n=>price[n]&&idx[n]);
+  if(!names.length)throw new Error("매매평단가가 입력된 지역이 없습니다.");
+  names.forEach(n=>price[n].forEach((v,i)=>{if(typeof v==="number"&&v>0&&i>last)last=i}));
+  const m=mAll.slice(0,last+1),r={},isn=v=>typeof v==="number"&&isFinite(v);
+  const mon=(a,pos)=>(a||[]).slice(0,last+1).map(v=>isn(v)&&(v>0||!pos)?v:null);
+  const yearly=(a,allow0)=>{const o=[];for(let y=2006;y<=2030;y++){const j=mAll.indexOf(y+"-01");let v=null;
+    if(a&&j>=0)for(let q=0;q<12;q++){const w=a[j+q];if(isn(w)&&(w>0||allow0)){v=w;break}}o.push(v)}return o};
+  names.forEach((n,o)=>{const p=n.split(/\s+/);const si=shortSido(p[0]),gu=p.slice(1).join(" ")||p[0];
+    const R=RB[n]||{},E=EX[n]||{};
+    const x={sido:si,gu,o,m,p:price[n].slice(0,last+1).map(v=>isn(v)&&v>0?v:null)};
+    ["s","d","v","k","t"].forEach(k=>x[k]=idx[n][k].slice(0,last+1).map(v=>isn(v)?Math.round(v*100)/100:0));
+    x.vol=mon(R["매매거래량"]);x.avg=mon(R["월평균매매거래량"]);x.mk=mon(R["시장강도"]);
+    x.yi=yearly(R["연별입주량"],true);x.yd=yearly(R["연별수요량"],false);x.pop=yearly(R["전년도인구수"],false);
+    x.rt=mon(E["전세가율"],true);x.cp=mon(E["현재인구수"],true);
+    r[si+" "+gu]=x});
+  return{m,r}}
+async function upload(file){
+  say("파일을 읽는 중입니다. 파일이 크면 몇십 초 걸립니다…");
+  try{
+    if(!window.XLSX)throw new Error("엑셀 읽기 라이브러리를 불러오지 못했습니다.");
+    const n=parseBook(await file.arrayBuffer()),keys=Object.keys(n.r);
+    if(!DB)throw new Error("데이터 저장소에 연결되지 않았습니다.");
+    say(`${keys.length}개 지역을 저장하는 중…`);
+    let i=0;const ids=new Set();
+    for(const k of keys){const x=n.r[k];ids.add(dk(x.sido,x.gu));await DB.doc("regions/"+dk(x.sido,x.gu)).set(x);i++;say(`저장 중 ${i}/${keys.length}`)}
+    const old=await DB.collection("regions").get();
+    for(const d of old.docs)if(!ids.has(d.id))await DB.doc("regions/"+d.id).delete();
+    await DB.doc("meta/info").set({updatedAt:new Date().toISOString(),file:file.name,regions:keys.length,first:n.m[0],last:n.m[n.m.length-1]});
+    say(`완료: ${keys.length}개 지역, ${n.m[0]} ~ ${n.m[n.m.length-1]}`)
+  }catch(e){say("업로드 실패: "+(e&&e.message||e),true)}}
+$("#ubtn").addEventListener("click",()=>$("#ufile").click());
+$("#ufile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)upload(f)});
+/* ---- 구간 드래그: 매매가·전세가 변동 ---- */
+const pct=(a,b)=>{const v=(b/a-1)*100;return(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(1)+"%"};
+let spX=0,spY=0;
+function placePop(){const p=$("#selPop");if(p.hidden)return;const w=p.offsetWidth,h=p.offsetHeight,W=innerWidth,H=innerHeight;
+  let x=spX+16,y=spY+16;if(x+w>W-8)x=spX-w-16;if(y+h>H-8)y=spY-h-16;p.style.left=Math.max(8,x)+"px";p.style.top=Math.max(8,y)+"px"}
+function clearSel(){selA=selB=null;if(cT){cT.update("none");cB.update("none")}const p=$("#selPop");p.hidden=true;p.classList.remove("fin")}
+function selRefresh(){
+  const card=$("#selPop");if(selA==null||selB==null||selA===selB||!cT){card.hidden=true;return}
+  const lo=Math.min(selA,selB),hi=Math.max(selA,selB),e=Math.min(N-1,start+win-1);
+  if(lo<start||hi>e){selA=selB=null;cT.update("none");cB.update("none");card.hidden=true;return}
+  const R=ALL.r[region],rt=R.rt||[];
+  const first=f=>{for(let i=lo;i<=hi;i++)if(f(i))return i;return null},lastI=f=>{for(let i=hi;i>=lo;i--)if(f(i))return i;return null};
+  const hp=i=>price[i]!=null,hr=i=>price[i]!=null&&rt[i]!=null;
+  const ps=first(hp),pe=lastI(hp),rs=first(hr),re=lastI(hr);
+  const cls=d=>d>0?"up":d<0?"down":"eq";
+  const row=(lab,from,to,d,dtxt,pc,sub)=>`<dt>${lab}</dt><dd>${from} → ${to}<small class="${cls(d)}">${dtxt}${pc?` (${pc})`:""}</small>${sub?`<small style="color:var(--mute)">${sub}</small>`:""}</dd>`;
+  let h=`<div class="h"><span>${R.gu} ${DATA.m[lo]} ~ ${DATA.m[hi]} (${hi-lo+1}개월)</span><button type="button" id="selX" aria-label="닫기">×</button></div><dl>`;
+  if(ps!=null&&pe!=null&&ps<pe)h+=row("매매",fmt(price[ps]),fmt(price[pe]),price[pe]-price[ps],sg(price[pe]-price[ps])+"만원/평",pct(price[ps],price[pe]),ps!==lo||pe!==hi?`${DATA.m[ps]}~${DATA.m[pe]}`:"");
+  else h+=`<dt>매매</dt><dd>구간에 평단가가 2개월 이상 없음</dd>`;
+  const rent=i=>price[i]*rt[i]/100;
+  if(rs!=null&&re!=null&&rs<re){
+    const a=Math.round(rent(rs)),b=Math.round(rent(re));
+    h+=row("전세",fmt(a),fmt(b),b-a,sg(b-a)+"만원/평",pct(rent(rs),rent(re)),`${DATA.m[rs]}~${DATA.m[re]}`);
+    h+=row("전세가율",rt[rs]+"%",rt[re]+"%",rt[re]-rt[rs],(rt[re]-rt[rs]>0?"+":rt[re]-rt[rs]<0?"−":"")+Math.abs(rt[re]-rt[rs])+"%p","","")}
+  else{const av=[];rt.forEach((v,i)=>{if(v!=null)av.push(DATA.m[i])});
+    h+=`<dt>전세</dt><dd style="white-space:normal">구간에 전세가율이 입력된 달이 2개월 미만${av.length?` (입력: ${av[0]}~${av[av.length-1]})`:""}</dd>`}
+  h+=`</dl><div class="f">전세 = 평단가×전세가율, 변동률은 시작 값 대비</div>`;
+  card.innerHTML=h;card.hidden=false;placePop();
+  const x=$("#selX");if(x)x.addEventListener("click",clearSel)}
+(function(){let drag=false;
+  const paint=()=>{cT.update("none");cB.update("none");selRefresh()};
+  ["cvT","cvB"].forEach(id=>{const cv=$("#"+id);cv.style.touchAction="pan-y";const ch=()=>id==="cvT"?cT:cB;
+    const at=e=>{const c=ch(),r=cv.getBoundingClientRect(),v=Math.round(c.scales.x.getValueForPixel(e.clientX-r.left));return Math.max(start,Math.min(Math.min(N-1,start+win-1),v))};
+    cv.addEventListener("pointerdown",e=>{if(e.button!==0||!ch())return;drag=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}selA=selB=at(e);spX=e.clientX;spY=e.clientY;$("#selPop").classList.remove("fin");paint()});
+    cv.addEventListener("pointermove",e=>{if(!drag)return;selB=at(e);spX=e.clientX;spY=e.clientY;paint()});
+    const end=()=>{if(!drag)return;drag=false;if(selA===selB)clearSel();else{$("#selPop").classList.add("fin");paint()}};
+    cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end)});
+})();
+(function init(){
+  applySel();build();drawReg();summary();view();initDb();
+  const re=()=>{readC();cT.update("none");cB.update("none")};
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change",re);
+  new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+})();
+</script>
+<script>
+(function(){
+const Q=s=>document.querySelector(s);
+const MIN_BI=4;
+let SEL=null,KEYS0=new Set(),grp="__all",baseY=2026,baseM=8,minPop=0,sortK=1,sortDir=-1;
+const POPS=[[0,"제한 없음"],[100000,"10만 이상"],[150000,"15만 이상"],[200000,"20만 이상"],[250000,"25만 이상"],[300000,"30만 이상"]];
+const fn=(v,d)=>v==null||!isFinite(v)?"-":Number(v).toLocaleString("ko-KR",d?{minimumFractionDigits:d,maximumFractionDigits:d}:{maximumFractionDigits:0});
+const fi=v=>v==null?"-":(Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):String(+v.toFixed(2)));
+const keys=()=>Object.keys(ALL.r).sort((a,b)=>ALL.r[a].o-ALL.r[b].o);
+const sidoList=()=>{const o=[];keys().forEach(k=>{const s=ALL.r[k].sido;if(!o.includes(s))o.push(s)});return o};
+const biOf=()=>{const s=baseY+"-"+String(baseM).padStart(2,"0");let i=ALL.m.indexOf(s);if(i<0)i=baseY<2006?MIN_BI:ALL.m.length-1;return Math.max(MIN_BI,Math.min(ALL.m.length-1,i))};
+const mm=i=>ALL.m[i].slice(2,4)+"-"+ALL.m[i].slice(5);
+function build(bi){
+  const Y=+ALL.m[bi].slice(0,4),cols=[];
+  const A=(a,i)=>a&&i>=0&&i<a.length&&a[i]!=null?a[i]:null;
+  const yr=(a,y)=>{const i=y-2006;return a&&i>=0&&i<a.length&&a[i]!=null?a[i]:null};
+  const dif=(a,i)=>{const u=A(a,i),w=A(a,i-1);return u==null||w==null?null:u-w};
+  const ix=(x,k,i)=>{const v=A(x[k],i);return v>0?v:null};
+  const tt=(x,i)=>A(x.d,i)>0?A(x.t,i):null;
+  const popNow=x=>{for(let i=bi;i>=0&&+ALL.m[i].slice(0,4)===Y;i--){const v=A(x.cp,i);if(v!=null)return v}return yr(x.pop,Y)};
+  const dem=x=>{for(let y=Y;y>=2013;y--){const v=yr(x.yd,y);if(v)return v}return null};
+  const rate=(x,i)=>{const v=A(x.vol,i),a=A(x.avg,i);return v==null||!a?null:Math.round(v/a*100)};
+  const add=(g,h,f,t,b)=>cols.push({g,h,f,t,b});
+  add("기본 정보","지역명",x=>x.sido+" "+x.gu,"name");
+  add("기본 정보","인구",popNow,"int");
+  add("기본 정보",mm(bi)+"평단가",x=>A(x.p,bi),"int",1);
+  add("기본 정보",mm(bi)+"전세율",x=>A(x.rt,bi),"int",1);
+  const inv=(x,py)=>{const p=A(x.p,bi),r=A(x.rt,bi);return p==null||r==null?null:Math.round(p*py*(100-r)*100)};
+  add("기본 정보","25평 기준 투자금",x=>inv(x,25),"int",1);
+  add("기본 정보","32평 기준 투자금",x=>inv(x,32),"int",1);
+  [["공급","s"],["수요","d"],["거래량","v"],["매수심리","k"]].forEach(([h,k])=>add("지소지수 정보",h,x=>ix(x,k,bi),"idx",1));
+  add("지소지수 정보",mm(bi)+"지소지수",x=>tt(x,bi),"tot",1);
+  for(let q=1;q<=3;q++)add("월별 지소지수",mm(bi-q),x=>tt(x,bi-q),"tot");
+  for(let q=3;q>=0;q--)add("거래량분석",mm(bi-q)+"거래량",x=>A(x.vol,bi-q),"int",q===0);
+  for(let q=3;q>=0;q--)add("거래량분석",mm(bi-q)+"거래율",x=>rate(x,bi-q),"int",q===0);
+  for(let q=3;q>=0;q--)add("매수심리분석",mm(bi-q)+"시장강도",x=>A(x.mk,bi-q),"int",q===0);
+  for(let q=3;q>=0;q--)add("매수심리분석",mm(bi-q)+"변동폭",x=>dif(x.mk,bi-q),"dlt",q===0);
+  for(let k=0;k<3;k++)add("공급분석",(Y+k-2000)+"년공급",x=>yr(x.yi,Y+k),"int",k===0);
+  for(let k=0;k<3;k++)add("공급분석",(Y+k-2000)+"년수요대비",x=>{const s=yr(x.yi,Y+k),d=dem(x);return s==null||!d?null:s/d},"r2",k===0);
+  for(let k=4;k>=1;k--)add("수요분석",(Y-k-2000)+"년인구",x=>yr(x.pop,Y-k+1),"int");
+  const p3=x=>{const a=[3,2,1].map(k=>yr(x.pop,Y-k+1));return a.some(v=>v==null)?null:(a[0]+a[1]+a[2])/3};
+  add("수요분석",(Y-3-2000)+"~"+(Y-1-2000)+"평균",x=>{const v=p3(x);return v==null?null:Math.round(v)},"int");
+  add("수요분석","인구증감율",x=>{const v=p3(x),b=yr(x.pop,Y-3);return v==null||!b?null:v/b},"r2");
+  for(let q=3;q>=0;q--)add("매매평당가분석",mm(bi-q)+"시세",x=>A(x.p,bi-q),"int",q===0);
+  for(let q=3;q>=0;q--)add("매매평당가분석",mm(bi-q)+"변동폭",x=>dif(x.p,bi-q),"dlt",q===0);
+  for(let q=3;q>=0;q--)add("전세가율분석",mm(bi-q)+"전세가율",x=>A(x.rt,bi-q),"int",q===0);
+  for(let q=3;q>=0;q--)add("전세가율분석",mm(bi-q)+"변동폭",x=>dif(x.rt,bi-q),"dlt",q===0);
+  const mAgo=(x,n)=>{const c=A(x.p,bi),o=A(x.p,bi-n);return c==null||!o?null:Math.round((c/o-1)*1000)/10};
+  add("신뢰도 점검","24개월 상승률(%)",x=>mAgo(x,24),"p1");
+  add("신뢰도 점검","6개월 변화(%)",x=>mAgo(x,6),"p1");
+  add("신뢰도 점검","24개월 고점대비(%)",x=>{const c=A(x.p,bi);if(c==null)return null;let m=0;for(let i=Math.max(0,bi-24);i<=bi;i++){const v=A(x.p,i);if(v&&v>m)m=v}return m?Math.round((c/m-1)*1000)/10:null},"p1");
+  const lastBuy=x=>{let b=null;(x.bmk||[]).forEach(([c,k])=>{if(c<=bi)b=[c,k]});return b};
+  add("신뢰도 점검","매수확정 후 개월",x=>{const b=lastBuy(x);return b?bi-b[0]:null},"int");
+  add("신뢰도 점검","매수 점수(0~4)",x=>{const b=lastBuy(x);if(!b||bi-b[0]>12)return null;const k=A(x.k,bi),m6=mAgo(x,6);
+    return (["서울","경기","인천"].includes(x.sido)?1:0)+(b[1]==="예외"?1:0)+(k!=null&&k>=4?1:0)+(m6!=null&&m6>=0?1:0)},"int");
+  add("규칙 승률","매수 승률(12개월)",x=>x.bw&&x.bw[1]?Math.round(x.bw[0]/x.bw[1]*100):null,"pct");
+  add("규칙 승률","매수 건수",x=>x.bw&&x.bw[1]?x.bw[1]:null,"int");
+  add("규칙 승률","매도 적중률(12개월)",x=>x.sw&&x.sw[1]?Math.round(x.sw[0]/x.sw[1]*100):null,"pct");
+  add("규칙 승률","매도 건수",x=>x.sw&&x.sw[1]?x.sw[1]:null,"int");
+  return {cols,popNow};
+}
+function tint(v,t){if(v==null)return"";const s=t==="tot"?1+(v-4)/16*4:v;const c=Math.max(1,Math.min(5,s)),h=Math.round(215-(c-1)*52);return ` style="background:hsl(${h} 70% 50% / .2)"`}
+const FLT={};
+function render(){
+  if(!SEL||!ALL||!ALL.m)return;
+  const bi=biOf(),{cols,popNow}=build(bi);
+  const list=keys().filter(k=>SEL.has(k)).map(k=>ALL.r[k]).filter(x=>{if(!minPop)return true;const p=popNow(x);return p!=null&&p>=minPop});
+  const rows0=list.map(x=>cols.map(c=>c.f(x)));
+  const act=Object.keys(FLT).filter(k=>{const f=FLT[k];return f&&(f.t||f.lo!=null||f.hi!=null)});
+  const keep=rows0.map(r=>act.every(k=>{const c=cols[k],f=FLT[k],v=r[k];
+    if(c.t==="name")return !f.t||String(v).toLowerCase().includes(f.t.toLowerCase());
+    if(v==null)return false;return(f.lo==null||v>=f.lo)&&(f.hi==null||v<=f.hi)}));
+  const rows=rows0.filter((_,i)=>keep[i]);list.splice(0,list.length,...list.filter((_,i)=>keep[i]));
+  const ord=rows.map((_,i)=>i);
+  if(sortK>=cols.length)sortK=1;
+  ord.sort((a,b)=>{const u=rows[a][sortK],w=rows[b][sortK];if(u==null&&w==null)return 0;if(u==null)return 1;if(w==null)return -1;
+    const c=typeof u==="string"?u.localeCompare(w,"ko"):u-w;return c*sortDir||(rows[a][0]<rows[b][0]?-1:1)});
+  let g1="",h1="",n=0;const gs=[];
+  cols.forEach(c=>{if(c.g!==g1){gs.push([c.g,1]);g1=c.g}else gs[gs.length-1][1]++});
+  h1="<tr>"+gs.map(([g,n],i)=>`<th colspan="${n}"${i===0?' class="nm"':''}>${g}</th>`).join("")+"</tr>";
+  const h2="<tr>"+cols.map((c,i)=>`<th${i===0?' class="nm"':c.b?' class="bs"':''} data-c="${i}" title="눌러서 정렬">${c.h}${i===sortK?`<span class="ar">${sortDir<0?"▼":"▲"}</span>`:""}</th>`).join("")+"</tr>";
+  const body=ord.map(i=>"<tr>"+rows[i].map((v,j)=>{const c=cols[j];let cls="",txt;
+    if(c.t==="name"){return `<td class="nm">${v}</td>`}
+    if(v==null)txt="-";
+    if(v==null){return `<td${c.b?' class="bs"':''}>-</td>`}
+    else if(c.t==="idx"||c.t==="tot"){txt=fi(v);return `<td class="c${c.b?' bs':''}"${tint(v,c.t)}>${txt}</td>`}
+    else if(c.t==="int")txt=fn(v);
+    else if(c.t==="pct")txt=v+"%";
+    else if(c.t==="r2")txt=fn(v,2);
+    else if(c.t==="p1"){txt=(v>0?"+":v<0?"−":"")+fn(Math.abs(v),1);cls=v>0?"up":v<0?"down":""}
+    else if(c.t==="dlt"){txt=v>0?"+"+fn(v):v<0?"−"+fn(-v):"0";cls=v>0?"up":v<0?"down":""}
+    const cc=(cls+(c.b?" bs":"")).trim();return `<td${cc?` class="${cc}"`:""}>${txt}</td>`}).join("")+"</tr>").join("");
+  const h3="<tr class=\"flt\">"+cols.map((c,i)=>{const f=FLT[i]||{};
+    if(c.t==="name")return `<th class="nm"><input type="search" data-f="${i}" data-w="t" placeholder="지역 검색" value="${(f.t||"").replace(/"/g,"&quot;")}"></th>`;
+    return `<th><input type="number" step="any" data-f="${i}" data-w="lo" placeholder="최소" value="${f.lo??""}"><input type="number" step="any" data-f="${i}" data-w="hi" placeholder="최대" value="${f.hi??""}"></th>`}).join("")+"</tr>";
+  Q("#aTab").innerHTML=`<thead>${h1}${h2}${h3}</thead><tbody>${body}</tbody>`;
+  const nF=act.length;Q("#aFclr").hidden=!nF;Q("#aFclr").textContent=`필터 ${nF}개 해제`;
+  const lab=`${baseY}년 ${baseM}월`;
+  Q("#aTitle").textContent=`${lab} 기준 · ${list.length}개 지역`;
+  Q("#aN").textContent=(minPop?`인구 ${POPS.find(p=>p[0]===minPop)[1]} · `:"")+`선택 ${SEL.size}곳 중 ${list.length}곳 표시 · 열 제목을 누르면 정렬 · 맨 아래 칸에 최소/최대를 넣으면 필터 · 노란색 열이 기준시점(${baseY}.${baseM}) 자료`;
+  Q("#aBaseV").textContent=lab;
+  const nm=SEL.size,tot=keys().length;
+  Q("#aRegV").textContent=nm===tot?`전체 (${tot}곳)`:nm===0?"선택 없음":nm<=2?[...SEL].join(", "):`${nm}곳 선택`;
+  Q("#aSub").textContent=`${lab} 시점의 평단가, 지소지수, 거래량, 공급, 인구를 지역별로 한 표에 모아 봅니다.`;
+  Q("#aNote").innerHTML=`<b>인구</b> 엑셀 [월별추가입력]의 현재인구수입니다. 기준월 값이 없으면 같은 해 가장 가까운 이전 달 값을, 그것도 없으면 [데이터]의 전년도인구수(작년 말 인구)를 씁니다. <b>25평·32평 기준 투자금</b> 평단가×평수에서 전세값(평단가×평수×전세율)을 뺀 금액이며 단위는 원입니다(평단가는 만원 단위라 ×10,000). 평단가나 전세율이 없으면 "-"입니다. <b>거래율</b> 해당 월 매매거래량 ÷ 월평균매매거래량(%). <b>수요대비</b> 연별입주량 ÷ 연별수요량(수요량은 그 연도 값, 없으면 가장 가까운 지난 연도 값). <b>변동폭</b> 전월 대비 증감. <b>전세율·전세가율</b> 엑셀 [월별추가입력]의 전세가율. 수요지수가 비어 있는 달은 합계도 "-"로 표시합니다. 값이 없으면 "-"입니다. <b>신뢰도 점검</b> 24개월 상승률은 기준월 평단가를 24개월 전과 비교한 값이고, 15% 미만에서 나온 매도 신호는 과거에 계속 오른 경우가 많았습니다(과열 아님). 매수 점수는 최근 12개월 안에 매수기준월이 확정된 지역만 계산하며 수도권·예외 확정·매수심리지수 4 이상·최근 6개월 상승을 각 1점으로 합산합니다(과거 24개월 승률: 0점 67%, 1점 87%, 2점 88%, 3점 91%, 4점 98%). 검증 표본이 짧고 한 사이클에 몰려 있어 참고용입니다. <b>규칙 승률</b> 지소지수 활용법 규칙(기본·예외·특수분석 T1~T3 포함, 2013년 이후)으로 잡은 사이클 기준입니다. 매수 승률은 매수기준월 확정 3개월 뒤에 샀을 때 12개월 뒤 평단가가 오른 비율, 매도 적중률은 매도기준월 확정 뒤 12개월에 평단가가 내린 비율이며, 건수가 적으면 참고용입니다. 엑셀을 올려 데이터를 바꾸면 이 열은 "-"가 됩니다.`;
+}
+/* 지역 선택 */
+function drawGrp(){
+  const ks=keys(),ss=sidoList();
+  const cnt=s=>{const l=s==="__all"?ks:ks.filter(k=>ALL.r[k].sido===s);return [l.filter(k=>SEL.has(k)).length,l.length]};
+  const item=(s,lab)=>{const [a,b]=cnt(s);return `<button type="button" class="gi" role="option" data-g="${s}" aria-selected="${grp===s}"><span>${lab}</span><em>${a}/${b}</em></button>`};
+  Q("#aGrp").innerHTML=item("__all","전체")+ss.map(s=>item(s,s)).join("");
+  Q("#aCnt").textContent=`${SEL.size}곳 선택`;
+}
+function drawList(){
+  const ks=keys().filter(k=>grp==="__all"||ALL.r[k].sido===grp);
+  const all=ks.length&&ks.every(k=>SEL.has(k));
+  Q("#aList").innerHTML=`<label class="ck all"><input type="checkbox" id="aAll"${all?" checked":""}><span>${grp==="__all"?"전체":grp} 모두 선택</span></label>`+
+    ks.map(k=>`<label class="ck"><input type="checkbox" data-k="${k}"${SEL.has(k)?" checked":""}><span>${grp==="__all"?k:ALL.r[k].gu}</span></label>`).join("");
+  const a=Q("#aAll");if(a)a.indeterminate=!all&&ks.some(k=>SEL.has(k));
+}
+function drawBase(){
+  const lastY=+ALL.m[ALL.m.length-1].slice(0,4);let h="";
+  for(let y=2006;y<=lastY;y++)h+=`<button type="button" role="option" data-y="${y}" aria-selected="${y===baseY}">${y}</button>`;
+  Q("#aY").innerHTML=h;
+  let hm="";for(let m=1;m<=12;m++){const s=baseY+"-"+String(m).padStart(2,"0"),i=ALL.m.indexOf(s),ok=i>=MIN_BI;
+    hm+=`<button type="button" role="option" data-m="${m}" aria-selected="${m===baseM}"${ok?"":' disabled style="opacity:.3;cursor:default"'}>${m}월</button>`}
+  Q("#aM").innerHTML=hm;
+}
+function drawPop(){Q("#aPop").innerHTML=POPS.map(([v,l])=>`<button type="button" data-p="${v}" aria-pressed="${v===minPop}">${l}</button>`).join("")}
+const pops=[["#aRegB","#aRegP"],["#aBaseB","#aBaseP"]];
+function openOnly(p){pops.forEach(([b,q])=>{const o=q===p;Q(q).hidden=!o;Q(b).setAttribute("aria-expanded",o)})}
+function sync(){drawGrp();drawList();render()}
+function init(){
+  SEL=new Set(keys());KEYS0=new Set(SEL);
+  const last=ALL.m[ALL.m.length-1];
+  const def=ALL.m.includes("2026-08")?"2026-08":last;baseY=+def.slice(0,4);baseM=+def.slice(5);
+  drawGrp();drawList();drawBase();drawPop();render();
+  Q("#aRegB").addEventListener("click",()=>openOnly(Q("#aRegP").hidden?"#aRegP":null));
+  Q("#aBaseB").addEventListener("click",()=>{drawBase();openOnly(Q("#aBaseP").hidden?"#aBaseP":null)});
+  Q("#aGrp").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;grp=b.dataset.g;drawGrp();drawList()});
+  Q("#aList").addEventListener("change",e=>{const t=e.target;
+    if(t.id==="aAll"){const ks=keys().filter(k=>grp==="__all"||ALL.r[k].sido===grp);ks.forEach(k=>t.checked?SEL.add(k):SEL.delete(k))}
+    else if(t.dataset.k){t.checked?SEL.add(t.dataset.k):SEL.delete(t.dataset.k)}
+    else return;
+    drawGrp();drawList();render()});
+  Q("#aClr").addEventListener("click",()=>{SEL.clear();drawGrp();drawList();render()});
+  Q("#aOk").addEventListener("click",()=>openOnly(null));
+  Q("#aY").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;baseY=+b.dataset.y;
+    if(ALL.m.indexOf(baseY+"-"+String(baseM).padStart(2,"0"))<MIN_BI){const f=[1,2,3,4,5,6,7,8,9,10,11,12].find(m=>ALL.m.indexOf(baseY+"-"+String(m).padStart(2,"0"))>=MIN_BI);if(f)baseM=f}
+    drawBase();render()});
+  Q("#aM").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.disabled)return;baseM=+b.dataset.m;drawBase();render();openOnly(null)});
+  Q("#aPop").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;minPop=+b.dataset.p;drawPop();render()});
+  let ft=null;
+  Q("#aTab").addEventListener("input",e=>{const el=e.target.closest("input[data-f]");if(!el)return;
+    const k=el.dataset.f,w=el.dataset.w,f=FLT[k]||(FLT[k]={});
+    if(w==="t")f.t=el.value.trim();else f[w]=el.value===""||isNaN(+el.value)?null:+el.value;
+    clearTimeout(ft);ft=setTimeout(()=>{render();const n=Q(`#aTab input[data-f="${k}"][data-w="${w}"]`);if(n){n.focus();try{const l=n.value.length;n.setSelectionRange(l,l)}catch(_){}}},450)});
+  Q("#aFclr").addEventListener("click",()=>{for(const k in FLT)delete FLT[k];render()});
+  Q("#aTab").addEventListener("click",e=>{const n=e.target.closest("td.nm");if(n){openFlow(n.textContent);return}const h=e.target.closest("th[data-c]");if(!h)return;const c=+h.dataset.c;
+    if(sortK===c)sortDir=-sortDir;else{sortK=c;sortDir=c===0?1:-1}render()});
+  document.addEventListener("click",e=>{if(e.target.isConnected&&!e.target.closest(".aw"))openOnly(null)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")openOnly(null)});
+}
+window.anaRefresh=function(){
+  if(!SEL)return;
+  const ks=new Set(keys()),wasAll=[...KEYS0].every(k=>SEL.has(k));
+  SEL=wasAll?new Set(ks):new Set([...SEL].filter(k=>ks.has(k)));KEYS0=ks;
+  if(!ALL.m.includes(baseY+"-"+String(baseM).padStart(2,"0"))){const l=ALL.m[ALL.m.length-1];baseY=+l.slice(0,4);baseM=+l.slice(5)}
+  drawGrp();drawList();drawBase();render()};
+init();
+/* 지역 클릭 → 지소지수 흐름을 전체 화면 팝업으로 */
+let ovOpen=false,lastFocus=null;
+function openFlow(k){
+  if(!ALL.r[k]||typeof pickRegion!=="function")return;
+  lastFocus=document.activeElement;
+  pickRegion(k);
+  const v=Q("#viewFlow");v.hidden=false;v.classList.add("ov");ovOpen=true;v.scrollTop=0;document.body.style.overflow="hidden";
+  requestAnimationFrame(()=>{try{cT.resize();cB.resize()}catch(e){}});
+  Q("#ovBack").focus();
+}
+function closeFlow(){
+  if(!ovOpen)return;ovOpen=false;
+  const v=Q("#viewFlow");v.classList.remove("ov");document.body.style.overflow="";v.hidden=location.hash!=="#flow";
+  if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}
+}
+Q("#ovBack").addEventListener("click",closeFlow);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovOpen){const open=["#rpop","#pop"].some(s=>{const el=Q(s);return el&&!el.hidden});if(!open)closeFlow()}},true);
+/* 탭 전환 */
+function route(){
+  closeFlow();
+  const flow=location.hash==="#flow",cmp=location.hash==="#compare";
+  Q("#viewFlow").hidden=!flow;Q("#viewAna").hidden=flow||cmp;Q("#viewCmp").hidden=!cmp;
+  Q("#tabAna").setAttribute("aria-current",flow||cmp?"false":"page");Q("#tabFlow").setAttribute("aria-current",flow?"page":"false");Q("#tabCmp").setAttribute("aria-current",cmp?"page":"false");
+  if(cmp&&window.__cmpShow)window.__cmpShow();
+  if(flow&&typeof cT!=="undefined"&&cT){try{cT.resize();cB.resize()}catch(e){}}
+}
+addEventListener("hashchange",route);route();
+})();
+</script>
+<script>
+(function(){
+const Q=s=>document.querySelector(s);
+let view="side",panels=[],sel=[],y0=2022,y1=2026,mode="idx",c1=null,c2=null,ready=false;
+const fmt=v=>v==null||!isFinite(v)?"-":Number(v).toLocaleString("ko-KR",{maximumFractionDigits:0});
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const col=i=>cv("--r"+(i%5+1));
+function plug(R,a,top){const C={up:cv("--up"),down:cv("--down"),buy:cv("--buy"),sell:cv("--sell"),chase:cv("--chase"),f:cv("--f-num")};return{id:"pp",
+ beforeDatasetsDraw(ch){const x=ch.scales.x,ar=ch.chartArea,g=Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0)),c=ch.ctx;c.save();c.beginPath();c.rect(ar.left,ar.top,ar.right-ar.left,ar.bottom-ar.top);c.clip();c.globalAlpha=.10;
+  (R.ph||[]).forEach(([t,s,e])=>{const x1=x.getPixelForValue(s-a)-g/2,x2=x.getPixelForValue(e-a)+g/2;if(x2<ar.left||x1>ar.right)return;c.fillStyle=t==="U"?C.up:C.down;c.fillRect(x1,ar.top,x2-x1,ar.bottom-ar.top)});c.restore()},
+ afterDatasetsDraw(ch){const x=ch.scales.x,ar=ch.chartArea,c=ch.ctx;
+  const mk=(list,colr,txt)=>(list||[]).forEach(([i,ok])=>{const px=x.getPixelForValue(i-a);if(px<ar.left||px>ar.right)return;c.save();c.strokeStyle=colr;c.lineWidth=1.5;c.setLineDash(ok?[]:[4,3]);c.beginPath();c.moveTo(px,ar.top);c.lineTo(px,ar.bottom);c.stroke();c.setLineDash([]);
+   if(top){c.font="700 10px "+C.f;const w=c.measureText(txt).width+8;const lx=Math.min(Math.max(px-w/2,ar.left),ar.right-w);c.fillStyle=colr;c.fillRect(lx,ar.top,w,14);c.fillStyle="#fff";c.textAlign="left";c.textBaseline="middle";c.fillText(ok?txt:txt+"?",lx+4,ar.top+7)}c.restore()});
+  mk(R.bm,C.buy,"매수");mk(R.sm,C.sell,"매도",R.smk);mk(R.cm,C.chase,"추격")}}}
+function setup(){
+  if(ready)return;ready=true;
+  const keys=Object.keys(ALL.r).sort((a,b)=>ALL.r[a].o-ALL.r[b].o);
+  sel=sel.filter(k=>ALL.r[k]);
+  const sidos=[...new Set(keys.map(k=>ALL.r[k].sido))];
+  Q("#cSi").innerHTML=sidos.map(s=>`<option>${s}</option>`).join("");
+  const gu=()=>{Q("#cGu").innerHTML=keys.filter(k=>ALL.r[k].sido===Q("#cSi").value).map(k=>`<option value="${k}">${ALL.r[k].gu}</option>`).join("")};
+  Q("#cSi").onchange=gu;if(sel.length)Q("#cSi").value=ALL.r[sel[0]].sido;gu();
+  const ys=[...new Set(ALL.m.map(m=>+m.slice(0,4)))];
+  Q("#cY0").innerHTML=Q("#cY1").innerHTML=ys.map(y=>`<option>${y}</option>`).join("");
+  Q("#cY0").value=y0;Q("#cY1").value=ys[ys.length-1];y1=ys[ys.length-1];
+  Q("#cAdd").onclick=()=>{const k=Q("#cGu").value;if(k&&!sel.includes(k)&&sel.length<12){sel.push(k);draw()}};
+  Q("#cAll").onclick=()=>{const s=Q("#cSi").value,ks=keys.filter(k=>ALL.r[k].sido===s);sel=ks.slice(0,40);draw()};
+  Q("#cChips").onclick=e=>{if(e.target.closest("#cClr")){sel=[];draw();return}const b=e.target.closest("button[data-k]");if(!b)return;sel=sel.filter(k=>k!==b.dataset.k);draw()};
+  (function(){const box=Q("#cChips");let ch=null,sx=0,sy=0,on=false,pid=null;
+    box.addEventListener("pointerdown",e=>{const c=e.target.closest(".chip[data-ck]");if(!c||e.target.closest("button")||e.button>0)return;ch=c;sx=e.clientX;sy=e.clientY;on=false;pid=e.pointerId});
+    box.addEventListener("pointermove",e=>{if(!ch||e.pointerId!==pid)return;
+      if(!on){if(Math.hypot(e.clientX-sx,e.clientY-sy)<6)return;on=true;ch.classList.add("drag");try{box.setPointerCapture(pid)}catch(_){}}
+      e.preventDefault();const x=e.clientX,y=e.clientY;
+      for(const o of box.querySelectorAll(".chip[data-ck]")){if(o===ch)continue;const r=o.getBoundingClientRect();
+        if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom){if(x<r.left+r.width/2)box.insertBefore(ch,o);else box.insertBefore(ch,o.nextSibling);break}}});
+    const end=e=>{if(!ch)return;const was=on;ch.classList.remove("drag");try{box.releasePointerCapture(pid)}catch(_){}
+      const order=[...box.querySelectorAll(".chip[data-ck]")].map(c=>c.dataset.ck);ch=null;on=false;
+      if(was&&order.length===sel.length&&order.join()!==sel.join()){sel=order;draw()}else if(was)draw()};
+    box.addEventListener("pointerup",end);box.addEventListener("pointercancel",end);
+  })();
+  Q("#cY0").onchange=()=>{y0=+Q("#cY0").value;if(y1<y0){y1=y0;Q("#cY1").value=y1}draw()};
+  Q("#cY1").onchange=()=>{y1=+Q("#cY1").value;if(y1<y0){y0=y1;Q("#cY0").value=y0}draw()};
+  Q("#cMode").onchange=()=>{mode=Q("#cMode").value;draw()};Q("#cView").onchange=()=>{view=Q("#cView").value;draw()};
+}
+function range(){const a=ALL.m.findIndex(m=>+m.slice(0,4)===y0);let b=ALL.m.length-1;for(let i=b;i>=0;i--)if(+ALL.m[i].slice(0,4)===y1){b=i;break}return[a,b]}
+function phaseAt(R,i){const p=(R.ph||[]).find(([t,s,e])=>s<=i&&i<=e);return p?(p[0]==="U"?"상승장":"하락장"):"보합장"}
+function lastKijun(R,b){let best=null;[["bm","매수"],["sm","매도"],["cm","추격"]].forEach(([f,n])=>(R[f]||[]).forEach(([i,ok])=>{if(i<=b&&(!best||i>best.i))best={i,n,ok}}));
+  return best?`${best.n} ${ALL.m[best.i]}${best.ok?"":"(대기)"}`:"-"}
+function drawSide(a,b,L){
+  csel=null;Q('#selPop').hidden=true;
+  panels.forEach(c=>{try{c.destroy()}catch(e){}});panels=[];
+  const C={};["up","down","eq","buy","sell","chase","fg","mute","line","bar-up","bar-down","bar-eq","c-s","c-d","c-v","c-k","c-p","f-num"].forEach(k=>C[k]=cv("--"+k));
+  const n=b-a+1,sg=v=>v>0?"+"+fmt(v):v<0?"−"+fmt(-v):"0";
+  Q("#cSide").innerHTML=sel.map((k,i)=>`<div class="cpan"><div class="ph2"><i style="background:${col(i)}"></i><b>${k}</b></div><div class="cmpbox p"><canvas id="pt${i}"></canvas></div><div class="cmpbox p2"><canvas id="pb${i}"></canvas></div></div>`).join("");
+  const tick=v=>{const m=L[v];if(!m)return"";const mm=m.slice(5),y=+m.slice(0,4);if(n<=24)return m;if(n<=72)return(mm==="01"||mm==="07")?m:"";if(n<=140)return mm==="01"?m:"";return(mm==="01"&&y%2===0)?m:""};
+  const xs=sh=>({offset:true,grid:{display:false},border:{display:sh},ticks:{display:sh,autoSkip:false,maxRotation:0,color:C.mute,font:{size:11},callback:tick}});
+  const rg0=ch=>{const x=ch.scales.x;return{x,gap:Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0))}};
+  const lab=(ctx,gap,list)=>{ctx.font=`600 10.5px ${C["f-num"]}`;ctx.textAlign="center";ctx.textBaseline="bottom";let w=0;for(let j=0;j<n;j++){const o=list(j);if(o)w=Math.max(w,ctx.measureText(o.text).width)}
+    for(let j=n-1;j>=0;j--){const o=list(j);if(!o)continue;ctx.fillStyle=o.color;ctx.fillText(o.text,o.x,o.y-5)}};
+  const arrow=(ctx,x,y,up,c)=>{const h=6;ctx.strokeStyle=c;ctx.fillStyle=c;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(x,y+(up?h:-h));ctx.lineTo(x,y+(up?-h+2:h-2));ctx.stroke();ctx.beginPath();const t=y+(up?-h:h),d=up?4.5:-4.5;ctx.moveTo(x,t);ctx.lineTo(x-4,t+d);ctx.lineTo(x+4,t+d);ctx.closePath();ctx.fill()};
+  const linkT=(src,dst)=>(evt,els)=>{if(els.length){const j=els[0].index,m=[{datasetIndex:0,index:j}];dst.setActiveElements(m);dst.tooltip.setActiveElements(m,{x:dst.scales.x.getPixelForValue(j),y:dst.chartArea.top+30})}else{dst.setActiveElements([]);dst.tooltip.setActiveElements([],{x:0,y:0})}dst.update("none")};
+  sel.forEach((k,i)=>{const R=ALL.r[k];
+    const P=R.p.slice(a,b+1).map(v=>v||null),T=R.t.slice(a,b+1).map((v,j)=>R.d[a+j]>0&&v?Math.round(v):null);
+    const dP=P.map((v,j)=>j>0&&v!=null&&P[j-1]!=null?v-P[j-1]:null),dT=T.map((v,j)=>j>0&&v!=null&&T[j-1]!=null?v-T[j-1]:0);
+    const tr=P.map((v,j)=>(j+3<n&&v!=null&&P[j+1]!=null&&P[j+2]!=null&&P[j+3]!=null)?(P[j+1]+P[j+2]+P[j+3])/3-v:null);
+    const vals=P.filter(v=>v!=null),mn=Math.min(...vals),mx=Math.max(...vals),rg=(mx-mn)||1;
+    const phase={id:"pp",beforeDatasetsDraw(ch){const{x,gap}=rg0(ch),ar=ch.chartArea,c=ch.ctx;c.save();c.beginPath();c.rect(ar.left,ar.top,ar.right-ar.left,ar.bottom-ar.top);c.clip();c.globalAlpha=.10;
+      (R.ph||[]).forEach(([t,s,e])=>{const x1=x.getPixelForValue(s-a)-gap/2,x2=x.getPixelForValue(e-a)+gap/2;if(x2<ar.left||x1>ar.right)return;c.fillStyle=t==="U"?C.up:C.down;c.fillRect(x1,ar.top,x2-x1,ar.bottom-ar.top)});c.restore()},
+     afterDatasetsDraw(ch){const x=ch.scales.x,ar=ch.chartArea,c=ch.ctx,top=ch.canvas.id.startsWith("pt");
+      const pl=[];
+      const mk=(list,colr,txt0,kd,sx)=>(list||[]).forEach(([q,ok],n)=>{const txt=txt0+(kd&&/^T/.test(kd[n]||"")?" "+kd[n]:"")+(sx&&sx[n]?sx[n].suf:"");const px=x.getPixelForValue(q-a);if(px<ar.left||px>ar.right)return;c.save();c.strokeStyle=colr;c.lineWidth=1.6;c.setLineDash(ok?[]:[4,3]);c.beginPath();c.moveTo(px,ar.top);c.lineTo(px,ar.bottom);c.stroke();c.setLineDash([]);
+        if(top){c.font="700 10.5px "+C["f-num"];const w=c.measureText(txt).width+8;const lx=Math.min(Math.max(px-w/2,ar.left),ar.right-w);let rw=0;while(pl.some(o=>o.r===rw&&lx<o.x2+2&&lx+w>o.x1-2))rw++;pl.push({r:rw,x1:lx,x2:lx+w});const ly=ar.top+rw*17;c.fillStyle=colr;c.fillRect(lx,ly,w,15);c.fillStyle="#fff";c.textAlign="left";c.textBaseline="middle";c.fillText(ok?txt:txt+"?",lx+4,ly+8)}c.restore()});
+      mk(R.bm,C.buy,"매수",null,sigList(R).buy);mk(R.sm,C.sell,"매도",R.smk,sigList(R).sell);mk(R.cm,C.chase,"추격");
+      if(csel&&csel.i===i&&csel.a!=null&&csel.b!=null){const lo=Math.min(csel.a,csel.b),hi=Math.max(csel.a,csel.b),gp=Math.abs(x.getPixelForValue(1)-x.getPixelForValue(0));
+        const x1=Math.max(ar.left,x.getPixelForValue(lo)-gp/2),x2=Math.min(ar.right,x.getPixelForValue(hi)+gp/2);if(x2>x1){c.save();c.fillStyle=cv("--sel");c.fillRect(x1,ar.top,x2-x1,ar.bottom-ar.top);c.strokeStyle=cv("--sel-line");c.lineWidth=1.5;c.beginPath();c.moveTo(x1,ar.top);c.lineTo(x1,ar.bottom);c.moveTo(x2,ar.top);c.lineTo(x2,ar.bottom);c.stroke();c.restore()}}}};
+    const topP={id:"tp",afterDatasetsDraw(ch){const{x,gap}=rg0(ch),yP=ch.scales.y,ctx=ch.ctx;ctx.save();
+      lab(ctx,gap,j=>{const d=dP[j];if(d==null)return null;return{text:d>0?fmt(d):d<0?"−"+fmt(-d):"0",x:x.getPixelForValue(j),y:yP.getPixelForValue(P[j]),color:d>0?C.up:d<0?C.down:C.eq}});
+      const kk=Math.max(1,Math.ceil(11/gap));for(let j=n-1;j>=0;j--){if((n-1-j)%kk)continue;const s=tr[j];if(s==null||P[j]==null)continue;const px=x.getPixelForValue(j),cy=yP.getPixelForValue(P[j])+13;
+        if(s===0){ctx.fillStyle=C.eq;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("–",px,cy)}else arrow(ctx,px,cy,s>0,s>0?C.up:C.down)}ctx.restore()}};
+    const botP={id:"bp",afterDatasetsDraw(ch){const{x,gap}=rg0(ch),yI=ch.scales.y,ctx=ch.ctx;ctx.save();lab(ctx,gap,j=>T[j]==null?null:{text:String(T[j]),x:x.getPixelForValue(j),y:yI.getPixelForValue(T[j]),color:C.fg});ctx.restore()}};
+    const bc=j=>{const d=dP[j];return d>0?C["bar-up"]:d<0?C["bar-down"]:C["bar-eq"]};
+    let cT,cB;
+    cT=new Chart(Q("#pt"+i),{type:"line",plugins:[phase,topP],data:{labels:L,datasets:[{label:"매매평단가",data:P,borderColor:C["c-p"],backgroundColor:C["c-p"],borderWidth:2,pointRadius:0,pointHoverRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:4,bottom:4}},interaction:{mode:"index",intersect:false},onHover:(e,els)=>linkT(cT,cB)(e,els),
+       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`평단가: ${fmt(c.raw)}`+(dP[c.dataIndex]!=null?` (${sg(dP[c.dataIndex])})`:""),afterLabel:c=>tr[c.dataIndex]!=null?`다음 3개월 평균 − 현재: ${sg(Math.round(tr[c.dataIndex]*10)/10)}`:""}}},
+       scales:{x:xs(false),y:{afterFit:s=>{s.width=58},min:mn-rg*.2,max:mx+rg*.22,grid:{color:C.line},border:{display:false},ticks:{color:C.mute,maxTicksLimit:5,font:{size:11},callback:v=>fmt(Math.round(v))}}}}});
+    const ln=[["s","c-s","공급지수"],["d","c-d","수요지수"],["v","c-v","거래량지수"],["k","c-k","매수심리지수"]].map(([f,c,nm])=>({type:"line",label:nm,data:R[f].slice(a,b+1),borderColor:C[c],backgroundColor:C[c],borderWidth:2,pointRadius:0,pointHoverRadius:3,cubicInterpolationMode:"monotone",order:1}));
+    cB=new Chart(Q("#pb"+i),{type:"bar",plugins:[phase,botP],data:{labels:L,datasets:[{type:"bar",label:"월별지소지수(합계)",data:T,backgroundColor:ctx=>bc(ctx.dataIndex),borderWidth:0,categoryPercentage:1,barPercentage:.82,order:3},...ln]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:8,bottom:0}},interaction:{mode:"index",intersect:false},onHover:(e,els)=>linkT(cB,cT)(e,els),
+       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const j=c.dataIndex;return c.datasetIndex===0?`${c.dataset.label}: ${c.raw==null?"-":c.raw}`+(j>0&&T[j]!=null?` (${dT[j]>0?"+":dT[j]<0?"−":""}${Math.abs(dT[j])})`:""):`${c.dataset.label}: ${c.raw==null?"-":c.raw}`},afterLabel:c=>c.datasetIndex===0&&dP[c.dataIndex]!=null?`평단가 변동: ${sg(dP[c.dataIndex])}`:""}}},
+       scales:{x:xs(true),y:{afterFit:s=>{s.width=58},min:0,max:25,grid:{color:C.line},border:{display:false},ticks:{color:C.mute,stepSize:1,font:{size:9},padding:4}}}}});
+    panels.push(cT,cB);
+    const paint=()=>{cT.update("none");cB.update("none");popup(i,a,P,R)};
+    [[cT,"pt"],[cB,"pb"]].forEach(([chh,pre])=>{const cvs=Q("#"+pre+i);cvs.style.touchAction="pan-y";
+      const at=e=>{const r=cvs.getBoundingClientRect(),v=Math.round(chh.scales.x.getValueForPixel(e.clientX-r.left));return Math.max(0,Math.min(n-1,v))};
+      cvs.addEventListener("pointerdown",e=>{if(e.button!==0)return;const o=csel&&csel.i!==i?csel.i:-1;drag=true;try{cvs.setPointerCapture(e.pointerId)}catch(_){}const old=csel;csel={i,a:at(e),b:at(e)};spX=e.clientX;spY=e.clientY;Q("#selPop").classList.remove("fin");if(old&&old.i!==i){panels[old.i*2].update("none");panels[old.i*2+1].update("none")}paint()});
+      cvs.addEventListener("pointermove",e=>{if(!drag||!csel||csel.i!==i)return;csel.b=at(e);spX=e.clientX;spY=e.clientY;paint()});
+      const end=()=>{if(!drag)return;drag=false;if(csel.a===csel.b)hideSel();else{Q("#selPop").classList.add("fin");paint()}};
+      cvs.addEventListener("pointerup",end);cvs.addEventListener("pointercancel",end)});
+  })}
+let csel=null,drag=false;
+function hideSel(){const old=csel;csel=null;if(old&&panels[old.i*2]){panels[old.i*2].update("none");panels[old.i*2+1].update("none")}const p=Q("#selPop");p.hidden=true;p.classList.remove("fin")}
+function popup(i,a,P,R){const card=Q("#selPop");if(!csel||csel.a===csel.b){card.hidden=true;return}
+  const lo=Math.min(csel.a,csel.b),hi=Math.max(csel.a,csel.b),rt=R.rt||[];
+  const first=f=>{for(let j=lo;j<=hi;j++)if(f(j))return j;return null},lastI=f=>{for(let j=hi;j>=lo;j--)if(f(j))return j;return null};
+  const hp=j=>P[j]!=null,hr=j=>P[j]!=null&&rt[a+j]!=null;
+  const ps=first(hp),pe=lastI(hp),rs=first(hr),re=lastI(hr);
+  const cls=d=>d>0?"up":d<0?"down":"eq",sg=v=>v>0?"+"+fmt(v):v<0?"−"+fmt(-v):"0",M=j=>ALL.m[a+j];
+  const row=(lab,from,to,d,dtxt,pc,sub)=>`<dt>${lab}</dt><dd>${from} → ${to}<small class="${cls(d)}">${dtxt}${pc?` (${pc})`:""}</small>${sub?`<small style="color:var(--mute)">${sub}</small>`:""}</dd>`;
+  let h=`<div class="h"><span>${R.gu} ${M(lo)} ~ ${M(hi)} (${hi-lo+1}개월)</span><button type="button" id="selX" aria-label="닫기">×</button></div><dl>`;
+  if(ps!=null&&pe!=null&&ps<pe)h+=row("매매",fmt(P[ps]),fmt(P[pe]),P[pe]-P[ps],sg(P[pe]-P[ps])+"만원/평",pct(P[ps],P[pe]),ps!==lo||pe!==hi?`${M(ps)}~${M(pe)}`:"");
+  else h+=`<dt>매매</dt><dd>구간에 평단가가 2개월 이상 없음</dd>`;
+  const rent=j=>P[j]*rt[a+j]/100;
+  if(rs!=null&&re!=null&&rs<re){const x0=Math.round(rent(rs)),x1=Math.round(rent(re)),d=rt[a+re]-rt[a+rs];
+    h+=row("전세",fmt(x0),fmt(x1),x1-x0,sg(x1-x0)+"만원/평",pct(rent(rs),rent(re)),`${M(rs)}~${M(re)}`);
+    h+=row("전세가율",rt[a+rs]+"%",rt[a+re]+"%",d,(d>0?"+":d<0?"−":"")+Math.abs(d)+"%p","","")}
+  else h+=`<dt>전세</dt><dd style="white-space:normal">구간에 전세가율이 입력된 달이 2개월 미만</dd>`;
+  h+=`</dl><div class="f">전세 = 평단가×전세가율, 변동률은 시작 값 대비</div>`;
+  card.innerHTML=h;card.hidden=false;placePop();const x=Q("#selX");if(x)x.addEventListener("click",hideSel)}
+function draw(){
+  const[a,b]=range(),L=ALL.m.slice(a,b+1);
+  Q("#cOver").hidden=view!=="over";Q("#cSide").hidden=view!=="side";Q("#cMode").hidden=view!=="over";
+  if(view==="side"&&sel.length){drawSide(a,b,L);}
+  Q("#cChips").innerHTML=(sel.length?`<button type="button" class="chip clr" id="cClr" style="padding:4px 10px;cursor:pointer;color:var(--accent)">초기화</button>`:`<span style="color:var(--mute);font-size:13px">지역을 추가해 주세요.</span>`)+sel.map((k,i)=>`<span class="chip" data-ck="${k}"><i style="background:${col(i)}"></i>${k}<button type="button" data-k="${k}" aria-label="${k} 제거">×</button></span>`).join("");
+  Q("#cAdd").disabled=sel.length>=12;
+  if(!sel.length){["#cTab"].forEach(s=>Q(s).innerHTML="");[c1,c2].forEach(c=>{if(c){c.destroy()}});c1=c2=null;Q("#cSide").innerHTML="";return}
+  const base=k=>{const p=ALL.r[k].p;for(let i=a;i<=b;i++)if(p[i])return p[i];return null};
+  if(view==="over"){
+  const ds1=sel.map((k,i)=>{const R=ALL.r[k],bs=base(k);return{label:k,data:R.p.slice(a,b+1).map(v=>v==null||!bs?null:(mode==="idx"?Math.round(v/bs*1000)/10:v)),borderColor:col(i),backgroundColor:col(i),borderWidth:2,pointRadius:0,pointHoverRadius:4,spanGaps:true}});
+  const ds2=sel.map((k,i)=>{const R=ALL.r[k];return{label:k,data:R.t.slice(a,b+1).map((v,j)=>R.d[a+j]>0&&v?Math.round(v):null),borderColor:col(i),backgroundColor:col(i),borderWidth:2,pointRadius:0,pointHoverRadius:4,spanGaps:false}});
+  Q("#cT1").textContent=mode==="idx"?`매매평단가 (${L[0]} = 100)`:"매매평단가 (만원)";
+  const grid=cv("--line"),mute=cv("--mute");
+  const tick=(v)=>{const m=L[v];if(!m)return"";const span=L.length;return m.slice(5)==="01"&&(span<=72||(+m.slice(0,4))%2===0)?m.slice(0,4):""};
+  const mk=(el,ds,yopt,old)=>{if(old)old.destroy();return new Chart(el,{type:"line",data:{labels:L,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it[0].label,label:c=>`${c.dataset.label}: ${c.raw==null?"-":mode==="idx"&&c.chart.canvas.id==="cvC1"?c.raw.toFixed(1):fmt(c.raw)}`}}},
+    scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:0,color:mute,font:{size:11},callback:tick}},y:Object.assign({grid:{color:grid},border:{display:false},ticks:{color:mute,font:{size:11}}},yopt)}}})};
+  c1=mk(Q("#cvC1"),ds1,{},c1);c2=mk(Q("#cvC2"),ds2,{min:0,max:25,ticks:{color:mute,stepSize:5,font:{size:11}}},c2);
+  }
+  const rows=sel.map((k,i)=>{const R=ALL.r[k],pb=base(k),e=(()=>{for(let i=b;i>=a;i--)if(R.d[i]>0&&R.p[i])return i;return b})(),pe=R.p[e],ch=pb&&pe?(pe/pb-1)*100:null,tb=R.d[e]>0?Math.round(R.t[e]):null;
+    return`<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${col(i)};margin-right:6px"></i>${k}</td><td>${fmt(pb)}</td><td>${fmt(pe)}</td><td class="${ch>0?"up":ch<0?"down":""}">${ch==null?"-":(ch>0?"+":"")+ch.toFixed(1)+"%"}</td><td>${tb==null?"-":tb}</td><td>${R.k[e]==null?"-":Math.round(R.k[e])}</td><td>${ALL.m[e]}</td><td>${phaseAt(R,e)}</td><td>${lastKijun(R,e)}</td></tr>`}).join("");
+  Q("#cTab").innerHTML=`<thead><tr><th>지역</th><th>${L[0]} 평단가</th><th>마지막 평단가</th><th>변동률</th><th>지소지수</th><th>매수심리</th><th>기준 월</th><th>장</th><th>최근 기준월</th></tr></thead><tbody>${rows}</tbody>`;
+}
+window.__cmpShow=()=>{setup();draw()};addEventListener('hashchange',()=>{if(location.hash!=='#compare')hideSel()});
+if(location.hash==="#compare")window.__cmpShow();
+})();
+</script>
+
