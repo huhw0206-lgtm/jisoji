@@ -95,7 +95,6 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 <div class="wrap">
   <header>
     <h1>단소지수</h1>
-    <p class="sub" id="asof"></p>
   </header>
 
   <section class="bar" aria-label="지역과 검색">
@@ -228,7 +227,6 @@ function drawRegions(){
   [...$("rgGu").children].forEach(b=>b.onclick=()=>{
     rsel.clear();rsel.add(b.dataset.r);$("rgPop").hidden=true;$("rgBtn").setAttribute("aria-expanded","false");
     after()});
-  $("asof").textContent=`엑셀 기준 ${ASOF} · ${rgs.join(", ")} · 전체 ${D.length.toLocaleString()}행`;
 }
 function drawDongs(){
   const ds=[...new Set(D.filter(o=>rsel.has(o.rg)).map(o=>o.dg))].sort();

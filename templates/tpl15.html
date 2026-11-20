@@ -756,7 +756,7 @@ function sync(){drawGrp();drawList();render()}
 function init(){
   SEL=new Set(keys());KEYS0=new Set(SEL);
   const last=ALL.m[ALL.m.length-1];
-  const def=ALL.m.includes("2026-08")?"2026-08":last;baseY=+def.slice(0,4);baseM=+def.slice(5);
+  const _n=new Date(),_t=new Date(_n.getFullYear(),_n.getMonth()-2,1),_s=_t.getFullYear()+"-"+String(_t.getMonth()+1).padStart(2,"0");const def=ALL.m.includes(_s)?_s:last;   /* 기본 기준시점 = 오늘 기준 2개월 전 */baseY=+def.slice(0,4);baseM=+def.slice(5);
   drawGrp();drawList();drawBase();drawPop();render();
   Q("#aRegB").addEventListener("click",()=>openOnly(Q("#aRegP").hidden?"#aRegP":null));
   Q("#aBaseB").addEventListener("click",()=>{drawBase();openOnly(Q("#aBaseP").hidden?"#aBaseP":null)});
