@@ -165,14 +165,20 @@ def build(folder, region):
                 rp,pn=latest(gb,c_); rj,jn=latest(gr if bd is None else gr[gr.bd==bd],c_)
                 P=float(rp.amt) if rp is not None else None; J=float(rj.dep) if rj is not None else None
                 gap=round(P-J) if P and J else None; jr=round(J/P*100,1) if P and J else None
+                pyx=round(((c_[0]+c_[1])/2)*1.3/3.3058) if c_[0] is not None else py
+                # 평당가: 그 평형의 가장 최근 매매가 ÷ 공급평(전용×1.3÷3.3058). 평당가율은 같은 구간 시군구 평균과 같은 전용평 기준으로 비교(배율 무관).
+                if P and ar0 is not None and BASE:
+                    used=1; ppd=round(P/pyx); pr_r=round((P/(ar0/3.3058))/BASE*100)
+                else:
+                    used=0; ppd=round(pp/1.3) if pp else None; pr_r=pr
+                s_r=list(s); s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5
                 ex=[None]*5
                 if rp is not None: ex[0]=float(rp.ar); ex[1]=f"{rp.ym[:4]}-{rp.ym[4:]}-{int(rp.dealDay):02d}"; ex[3]=str(rp.floor)
                 if rj is not None: ex[2]=f"{rj.ym[:4]}-{rj.ym[4:]}-{int(rj.dealDay):02d}"; ex[4]=str(rj.floor)+"층"+(" · "+rj.contractType if isinstance(rj.contractType,str) else "")
-                pyx=round(((c_[0]+c_[1])/2)*1.3/3.3058) if c_[0] is not None else py
                 bl0='전체(최근 12개월 거래 없음)' if bd is None else ['전용 60㎡ 이하','전용 60~85㎡','전용 85~135㎡','전용 135㎡ 초과'][bd]
                 bl=bl0+(f" · {ar0:g}㎡형" if ar0 is not None else "")
-                row=[region,x.dg,x.kaptName,tot,pyx,hv,ym,age,round(pp*c) if pp else None,round(BASE*c),pr,v6,tr,N,O,dr]+s+[sum(s)]+[None]*12+[v6,None,None,None,None]
-                row[22]=gap; row[23]=jr; row[24:29]=ex
+                row=[region,x.dg,x.kaptName,tot,pyx,hv,ym,age,ppd,round(BASE/1.3),pr_r,v6,tr,N,O,dr]+s_r+[sum(s_r)]+[None]*12+[v6,None,None,None,None]
+                row[22]=gap; row[23]=jr; row[24:29]=ex; row[29]=used
                 row+=[round(P) if P else None, round(J) if J else None, pn, jn, bl,
                       {10:'10평형대',20:'20평형대',30:'30평형대',40:'40평형대 이상'}[pb(pyx)], len(a), len(o)]
                 rows.append(row)
