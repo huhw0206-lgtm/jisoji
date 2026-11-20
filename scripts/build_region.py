@@ -167,8 +167,12 @@ def build(folder, region):
                 gap=round(P-J) if P and J else None; jr=round(J/P*100,1) if P and J else None
                 pyx=round(((c_[0]+c_[1])/2)*1.3/3.3058) if c_[0] is not None else py
                 # 평당가: 그 평형의 가장 최근 매매가 ÷ 공급평(전용×1.3÷3.3058). 평당가율은 같은 구간 시군구 평균과 같은 전용평 기준으로 비교(배율 무관).
-                if P and ar0 is not None and BASE:
-                    used=1; ppd=round(P/pyx); pr_r=round((P/(ar0/3.3058))/BASE*100)
+                recent=[]
+                if ar0 is not None and len(gb):
+                    q_=gb[(gb.ar.round(2)==ar0)&(gb.ym>=M12S)]
+                    if len(q_): q_=q_.assign(dd=q_.dealDay.astype(int)).sort_values(["ym","dd"]); recent=list(q_.amt.tail(3))   # 이 평형 최근 거래 최대 3건
+                if recent and BASE:
+                    used=len(recent); mp_=float(np.median(recent)); ppd=round(mp_/pyx); pr_r=round((mp_/(ar0/3.3058))/BASE*100)
                 else:
                     used=0; ppd=round(pp/1.3) if pp else None; pr_r=pr
                 s_r=list(s); s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5

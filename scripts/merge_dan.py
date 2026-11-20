@@ -80,6 +80,12 @@ seed=open(J("data","seed.json"),encoding="utf-8").read().strip()
 dan=open(J("build","dan_all.json"),encoding="utf-8").read().strip()
 assert S.count("__DATA__")==1 and S.count("__DANDATA__")==1
 F=S.replace("__DATA__",seed).replace("__DANDATA__",dan)
+# ---- 단독 사이트(GitHub Pages)용 문서 뼈대: 아티팩트에서는 자동으로 붙던 doctype·문자셋·모바일 viewport·기본 리셋
+SKEL=('<!doctype html>\n<html lang="ko"><head><meta charset="utf-8">'
+      '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+      '<meta name="theme-color" content="#f3f5f8">'
+      '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>\n')
+if not F.lstrip().lower().startswith("<!doctype"): F=SKEL+F+"\n</html>\n"
 os.makedirs(J("docs"),exist_ok=True)
 open(J("docs","index.html"),"w",encoding="utf-8").write(F)
 print("tpl16",len(S)//1024,"KB site16",len(F)//1024,"KB")
