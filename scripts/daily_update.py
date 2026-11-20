@@ -20,6 +20,8 @@ BUDGET = int(os.environ.get("CALL_BUDGET", "4000"))
 KST = datetime.utcnow() + timedelta(hours=9)
 FORCE = os.environ.get("FORCE_BASS") == "1" or KST.day == 1
 KEEP_MONTHS = 14
+T0 = time.time()
+MAX_MIN = int(os.environ.get("MAX_MINUTES", "85"))   # 이 시간이 지나면 스스로 멈추고 저장 단계로 넘어감
 
 calls = 0
 _orig = cy.call
@@ -27,6 +29,8 @@ def counted(*a, **k):
     global calls
     if calls >= BUDGET:
         sys.exit("[중단] 오늘 쓸 호출 예산에 도달했습니다 (한도)")
+    if time.time() - T0 > MAX_MIN * 60:
+        sys.exit(f"[중단] 실행 시간 {MAX_MIN}분에 도달했습니다 (한도) - 받은 데이터를 저장하고 내일 이어서 합니다")
     calls += 1
     return _orig(*a, **k)
 cy.call = counted
