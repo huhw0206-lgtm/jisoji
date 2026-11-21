@@ -12,6 +12,8 @@ for name in sorted(os.listdir(SRC)):
     d = os.path.join(SRC, name)
     if not os.path.isdir(d) or not os.path.exists(os.path.join(d, "done.txt")): continue
     if not all(os.path.exists(os.path.join(d, f)) for f in need): continue
+    if any(os.path.getsize(os.path.join(d, f)) < 20 for f in need):      # 자료가 비어 있는 지역(코드 변경·거래 없음)은 건너뜀
+        bad.append(f"{name}: 수집 자료가 비어 있습니다(시군구 코드 확인 필요)"); continue
     try:
         r, m, n = br.build(d, name)
         rows += r; ok.append(f"{name} {len(r)}행 (거래 연결 {br.build.share*100:.1f}%)")

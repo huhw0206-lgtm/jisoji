@@ -90,22 +90,22 @@ def build(folder, region):
         short=len(n2(c.nm,False))<4                               # 이름이 너무 짧으면(한솔, 롯데…) 같은 번지일 때만 인정
         if short:                                          # 짧은 이름: 같은 번지이거나, 같은 동에서 이름을 포함하는 단지가 딱 하나일 때만
             key=n2(c.nm)
-            cj=cand[cand.jb.map(lambda j:j is not None and main(j)==main(c.jb))]
-            ck=cand[cand.kaptName.map(lambda z:len(key)>=2 and key in n2(z) and sim(c.nm,z)>0)]
+            cj=cand[cand.jb.map(lambda j:j is not None and main(j)==main(c.jb)).astype(bool)]
+            ck=cand[cand.kaptName.map(lambda z:len(key)>=2 and key in n2(z) and sim(c.nm,z)>0).astype(bool)]
             cand=cj if len(cj) else (ck if len(ck)==1 else cand.iloc[0:0])
         if not short:                                      # 이름에서 차수를 뺀 핵심어가 같은 동 단지 이름에 포함되고 그런 단지가 하나뿐이면 인정
             key2=re.sub(r"\d+(단지|차)?$","",n2(c.nm))
-            allk=cand[cand.kaptName.map(lambda z:len(key2)>=4 and key2 in n2(z))]
-            ck2=(allk[allk.kaptName.map(lambda z:sim(c.nm,z)>0)] if len(allk)==1 else allk[allk.kaptName.map(lambda z:sim(c.nm,z)>0 and bool(dgt(n2(z))))])   # 같은 이름 단지가 여럿이면 차수가 맞는 것만
+            allk=cand[cand.kaptName.map(lambda z:len(key2)>=4 and key2 in n2(z)).astype(bool)]
+            ck2=(allk[allk.kaptName.map(lambda z:sim(c.nm,z)>0).astype(bool)] if len(allk)==1 else allk[allk.kaptName.map(lambda z:sim(c.nm,z)>0 and bool(dgt(n2(z)))).astype(bool)])   # 같은 이름 단지가 여럿이면 차수가 맞는 것만
             if len(ck2)==1:
                 r_=ck2.iloc[0]
                 if r_.has: mp[c.aptSeq]=r_.kaptCode
                 else: missing_bass[c.aptSeq]=r_.kaptCode
                 continue
-        sc=sorted([(sim(c.nm,r_.kaptName)+(0.15 if main(r_.jb)==main(c.jb) and r_.jb is not None else 0),r_.kaptCode,r_.has) for _,r_ in cand.iterrows()],reverse=True)
+        sc=sorted([(sim(c.nm,r_.kaptName)+(0.15 if main(r_.jb)==main(c.jb) and r_.jb is not None else 0),r_.kaptCode,r_.has) for _,r_ in cand.iterrows()],key=lambda x:(x[0],str(x[1])),reverse=True)
         if short and (not sc or sc[0][0]<0.5): continue
         if not sc or sc[0][0]<0.7:
-            sc=sorted([(sim(c.nm,r_.kaptName),r_.kaptCode,r_.has) for _,r_ in pool.iterrows()],reverse=True)   # 동 표기가 다른 경우
+            sc=sorted([(sim(c.nm,r_.kaptName),r_.kaptCode,r_.has) for _,r_ in pool.iterrows()],key=lambda x:(x[0],str(x[1])),reverse=True)   # 동 표기가 다른 경우
             if short or not sc or sc[0][0]<0.85: continue
         if len(sc)>1 and sc[0][0]-sc[1][0]<0.05 and sc[0][0]<0.95: continue
         if sc[0][2]: mp[c.aptSeq]=sc[0][1]
@@ -126,7 +126,7 @@ def build(folder, region):
     for _,x in b.iterrows():
         try: tot=int(float(x.hoCnt)) if float(x.hoCnt or 0)>0 else int(float(x.kaptdaCnt))
         except: continue
-        if tot<100 or not x.kaptUsedate or len(x.kaptUsedate)<6: continue
+        if tot<100 or not isinstance(x.kaptUsedate,str) or len(x.kaptUsedate)<6: continue
         u=x.kaptUsedate; ym=f"{u[:4]}-{u[4:6]}"; age=(CY*12+CM-(int(u[:4])*12+int(u[4:6])))//12
         hh=[int(float(x[k] or 0)) for k in ["kaptMparea60","kaptMparea85","kaptMparea135","kaptMparea136"]]
         g=t[t.kc==x.kaptCode]; gr=rr[rr.kc==x.kaptCode]
