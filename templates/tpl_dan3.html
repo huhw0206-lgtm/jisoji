@@ -267,13 +267,13 @@ const COLS=[
  ["tot","총세대수",o=>o.tot,o=>(o.tot||0).toLocaleString()],
  ["py","평형 (세대수)",o=>o.py,o=>`${o.py}평<small>${o.hh}세대</small>`],
  ["age","입주 (연차)",o=>o.age,o=>`${esc(o.ym)}<small>${o.age}년차</small>`],
+ ["ppp","평당가 (평당가율)",o=>o.ppp,o=>o.ppp==null?"-":`${o.ppp.toLocaleString()}<small>${o.pr}%</small>`],
  ["s0","세대수",o=>o.s[0],o=>chip(o.s[0]),0,T[0]],["s1","연식",o=>o.s[1],o=>chip(o.s[1]),0,T[1]],["s2","평당가",o=>o.s[2],o=>chip(o.s[2]),0,T[2]],["s3","거래량",o=>o.s[3],o=>chip(o.s[3]),0,T[3]],["s4","실거래가",o=>o.s[4],o=>chip(o.s[4]),0,T[4]],
  ["sum","단소지수",o=>o.sum,o=>`<span class="sum chip g${o.sum<=9?1:o.sum<=13?2:o.sum<=17?3:o.sum<=21?4:5}">${o.sum}</span>`,0,TS],
  ["gap","매전갭",o=>o.gap,o=>o.gap==null?"-":"<b>"+won(o.gap)+"</b>"],
  ["P","매매 시세",o=>o.P,o=>o.P==null?"-":`${won(o.P)}<small>${o.pd?o.pd.slice(2)+" 거래 · 전용"+o.ty+"㎡ "+o.pf+"층":(o.pn||0)+"건 중앙값"}</small>`],
  ["J","전세 시세",o=>o.J,o=>o.J==null?"-":`${won(o.J)}<small>${o.jd?o.jd.slice(2)+" 거래 · "+o.jf:(o.jn||0)+"건 중앙값"}</small>`],
  ["jr","전세가율",o=>o.jr,o=>o.jr==null?"-":o.jr+"%"],
- ["ppp","평당가 (평당가율)",o=>o.ppp,o=>o.ppp==null?"-":`${o.ppp.toLocaleString()}<small>${o.pr}%</small>`],
  ["v6","6개월 거래 (거래율)",o=>o.v6,o=>`${o.v6}건<small>${o.tr}%</small>`],
  ["dr","실거래가율",o=>o.dr,o=>`${sgn(o.dr)}<small title="최근 3개월(2026-08~10) 중앙값 평당가 / 6개월 전 3개월(2026-03~05) 중앙값 평당가 (전용 평당 만원)">${o.N?F(o.N):"-"} / ${o.O?F(o.O):"-"}</small>`],
  ["pub","공시가격",o=>o.pub,o=>o.pmin==null?"-":`${won(o.pmin)}<small>~ ${won(o.pmax)}</small>`]
@@ -315,8 +315,8 @@ function render(){
   $("msg").textContent="";
 }
 $("copy").onclick=()=>{
-  const head=["지역","동","단지명","총세대수","평형","평형세대수","입주월","연차","세대수점수","연식점수","평당가점수","거래량점수","실거래가점수","단소지수","매매시세","전세시세","매전갭","전세가율","평당가","평당가율","6개월거래","거래율","실거래가율","최소공시가","최대공시가"].join("\t");
-  const txt=head+"\n"+shown.map(o=>[o.rg,o.dg,o.nm,o.tot,o.py,o.hh,o.ym,o.age,...o.s,o.sum,o.P==null?"":Math.round(o.P),o.J==null?"":Math.round(o.J),o.gap,o.jr,o.ppp,o.pr,o.v6,o.tr,o.dr,o.pmin,o.pmax].map(v=>v==null?"":v).join("\t")).join("\n");
+  const head=["지역","동","단지명","총세대수","평형","평형세대수","입주월","연차","평당가","평당가율","세대수점수","연식점수","평당가점수","거래량점수","실거래가점수","단소지수","매매시세","전세시세","매전갭","전세가율","6개월거래","거래율","실거래가율","최소공시가","최대공시가"].join("\t");
+  const txt=head+"\n"+shown.map(o=>[o.rg,o.dg,o.nm,o.tot,o.py,o.hh,o.ym,o.age,o.ppp,o.pr,...o.s,o.sum,o.P==null?"":Math.round(o.P),o.J==null?"":Math.round(o.J),o.gap,o.jr,o.v6,o.tr,o.dr,o.pmin,o.pmax].map(v=>v==null?"":v).join("\t")).join("\n");
   const done=()=>{$("msg").className="msg";$("msg").textContent=`${shown.length}행을 복사했습니다. 엑셀에 붙여넣으세요.`};
   const fb=()=>{const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}t.remove();$("msg").className="msg";$("msg").textContent=ok?`${shown.length}행을 복사했습니다.`:"복사가 막혀 있습니다. 표를 직접 드래그해 복사해 주세요."};
   try{navigator.clipboard.writeText(txt).then(done,fb)}catch(e){fb()}
