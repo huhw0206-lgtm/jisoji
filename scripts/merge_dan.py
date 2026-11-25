@@ -1,4 +1,5 @@
 import re,sys,json,os
+# 지역분석 표 지역유형·인구감소지역 열 포함 (2026-11-25 재배포)
 from datetime import datetime,timedelta
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 J=lambda *p:os.path.join(ROOT,*p)
