@@ -58,5 +58,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      - name: 업로드 반영 대기
+        run: sleep 30
       - id: deploy
         uses: actions/deploy-pages@v4
