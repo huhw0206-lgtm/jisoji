@@ -36,10 +36,17 @@ def build(folder, region):
         return (len(a&bb)-0.5*len(a^bb))+cm*0.1
     import difflib
     DONGS=set(b.dg.dropna())|(set(rd("apt_list.csv").as3.dropna()) if os.path.exists(os.path.join(folder,"apt_list.csv")) else set())
+    def _dfix(z_):                                           # "공도읍 용두리" 같은 읍·면+리 표기 → 단지 주소의 동(리) 표기에 맞춤
+        if not isinstance(z_,str) or z_ in DONGS or " " not in z_: return z_
+        ps_=z_.split()
+        for q_ in (ps_[-1],ps_[0]):
+            if q_ in DONGS: return q_
+        return z_
+    cx["dong"]=cx.dong.map(_dfix)
     def n2(z,strip=True):
         z=str(z).lower()
         z=re.sub(r"\([^)]*\)","",z)                      # (701동) (874) 같은 괄호 표기 제거
-        for a_,b_ in (("e-편한","e편한"),("이편한","e편한"),("이-편한","e편한"),("엘에이치","lh"),("엘지","lg"),("현대아이파크","아이파크"),("에이치","h")): z=z.replace(a_,b_)
+        for a_,b_ in (("e-편한","e편한"),("이편한","e편한"),("이-편한","e편한"),("엘에이치","lh"),("엘지","lg"),("현대아이파크","아이파크"),("에이치","h"),("view","뷰"),("에스케이","sk"),("힐스테이트","힐스테이트")): z=z.replace(a_,b_)
         if strip:
             for d_ in DONGS: z=z.replace(str(d_).lower(),"")     # 동 이름이 들어간 표기는 동 이름 제거
         return re.sub(r"[\s\-·,./_]|아파트|단지|\d+동$","",z)
