@@ -79,7 +79,12 @@ def build(folder, region):
     mp={}
     for _,c in cx.iterrows():
         cn=norm(c.nm); s=b[(b.dg==c.dong)&(b.jb==c.jb)]
-        if len(s)==1: mp[c.aptSeq]=s.iloc[0].kaptCode; continue
+        if len(s)==1:
+            if sim(c.nm,s.iloc[0].kaptName)<0.9:                    # 번지는 같지만 이름이 다름 → 같은 동에 이름이 거의 똑같은 단지가 있으면 그쪽으로
+                alt=b[(b.dg==c.dong)&(b.kaptCode!=s.iloc[0].kaptCode)]
+                alt=alt[alt.kaptName.map(lambda z:sim(c.nm,z)>=0.97).astype(bool)]
+                if len(alt)==1: mp[c.aptSeq]=alt.iloc[0].kaptCode; continue
+            mp[c.aptSeq]=s.iloc[0].kaptCode; continue
         if len(s)>1:
             s2=s[s.nm.map(lambda x:x==cn or x in cn or cn in x)]
             if len(s2)>=1: mp[c.aptSeq]=s2.iloc[0].kaptCode; continue
