@@ -187,16 +187,21 @@ def build(folder, region):
                     used=len(recent); mp_=float(np.median(recent)); ppd=round(mp_/pyx); pr_r=round((mp_/(ar0/3.3058))/BASE*100)
                 else:
                     used=0; ppd=round(pp/1.3) if pp else None; pr_r=pr
-                s_r=list(s); s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5
+                # 실거래가율: 같은 평형(평수) 거래의 직전월 평균 매매가 ÷ 6개월 전 달 평균 매매가 − 1 (표 기준과 동일)
+                _gp=gb[(gb.ar*1.3/3.3058).round()==pyx]
+                _a=_gp[_gp.ym==mm(CUR,-1)].amt; _o=_gp[_gp.ym==mm(CUR,-6)].amt
+                N_=round(_a.mean()) if len(_a) else None; O_=round(_o.mean()) if len(_o) else None
+                dr_=round((N_/O_-1)*100) if N_ and O_ else None
+                s_r=list(s); s_r[4]=1 if dr_ is None or dr_<=1 else 2 if dr_<=7 else 3 if dr_<=12 else 4 if dr_<=19 else 5; s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5
                 ex=[None]*5
                 if rp is not None: ex[0]=float(rp.ar); ex[1]=f"{rp.ym[:4]}-{rp.ym[4:]}-{int(rp.dealDay):02d}"; ex[3]=str(rp.floor)
                 if rj is not None: ex[2]=f"{rj.ym[:4]}-{rj.ym[4:]}-{int(rj.dealDay):02d}"; ex[4]=str(rj.floor)+"층"+(" · "+rj.contractType if isinstance(rj.contractType,str) else "")
                 bl0='전체(최근 12개월 거래 없음)' if bd is None else ['전용 60㎡ 이하','전용 60~85㎡','전용 85~135㎡','전용 135㎡ 초과'][bd]
                 bl=bl0+(f" · {ar0:g}㎡형" if ar0 is not None else "")
-                row=[region,x.dg,x.kaptName,tot,pyx,hv,ym,age,ppd,round(BASE/1.3),pr_r,v6,tr,N,O,dr]+s_r+[sum(s_r)]+[None]*12+[v6,None,None,None,None]
+                row=[region,x.dg,x.kaptName,tot,pyx,hv,ym,age,ppd,round(BASE/1.3),pr_r,v6,tr,N_,O_,dr_]+s_r+[sum(s_r)]+[None]*12+[v6,None,None,None,None]
                 row[22]=gap; row[23]=jr; row[24:29]=ex; row[29]=used
                 row+=[round(P) if P else None, round(J) if J else None, pn, jn, bl,
-                      {10:'10평형대',20:'20평형대',30:'30평형대',40:'40평형대 이상'}[pb(pyx)], len(a), len(o)]
+                      {10:'10평형대',20:'20평형대',30:'30평형대',40:'40평형대 이상'}[pb(pyx)], len(_a), len(_o)]
                 rows.append(row)
     build.share=round(t.kc.notna().mean(),3)
     build.mp=mp; build.mb=missing_bass; build.cx=cx; build.b=b; build.t=t

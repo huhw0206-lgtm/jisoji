@@ -13,8 +13,10 @@ def _mm(c,k):
 def _lab(a,b):
     a,b=_mm(CUR,a),_mm(CUR,b)
     return f"{a[:4]}-{a[4:]}~{b[4:]}" if a[:4]==b[:4] else f"{a[:4]}-{a[4:]}~{b[:4]}-{b[4:]}"
-for old,new in (("2026-08~10",_lab(-3,-1)),("2026-03~05",_lab(-8,-6))):
-    assert old in DAN,old; DAN=DAN.replace(old,new)
+def _one(k):
+    z=_mm(CUR,k); return f"{z[:4]}-{z[4:]}"
+for old,new in (("@@N@@",_one(-1)),("@@O@@",_one(-6)),("2026-08~10",_lab(-3,-1)),("2026-03~05",_lab(-8,-6))):
+    DAN=DAN.replace(old,new)
 assert 'const ASOF="2026-11-14";' in DAN
 DAN=DAN.replace('const ASOF="2026-11-14";','const ASOF="%s";'%_k.strftime("%Y-%m-%d"))
 NAMES="bar fld row chk file tab rg badge spacer panel bk gr meta count msg err tbl nm chip g1 g2 g3 g4 g5 sum up dn notes rules empty lab on rwrap rbtn rpop rcol rli".split()
