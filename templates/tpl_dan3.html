@@ -168,7 +168,7 @@ function toObj(a){
   o.sum=o.s.reduce((x,y)=>x+y,0);
   o.P=a[39]!=null?a[39]:(o.gap!=null&&o.jr!=null&&o.jr<100)?o.gap/(1-o.jr/100):null;
   o.J=a[40]!=null?a[40]:o.P!=null&&o.gap!=null?o.P-o.gap:null;
-  o.pu=a[29];o.pn=a[41];o.jn=a[42];o.ty=a[24];o.pd=a[25];o.jd=a[26];o.pf=a[27];o.jf=a[28];o.bl=a[43];o.pl=a[44];o.na=a[45];o.no=a[46];
+  o.pu=a[29];o.pn=a[41];o.jn=a[42];o.ty=a[24];o.pd=a[25];o.jd=a[26];o.pf=a[27];o.jf=a[28];o.bl=a[43];o.pl=a[44];o.na=a[45];o.no=a[46];o.cd=a[47];o.cn=a[48];o.cg=a[49];o.ck=a[50];o.cnn=a[51];o.cw=a[52];
   o.pub=o.pmax;
   return o;
 }
@@ -276,6 +276,7 @@ const COLS=[
  ["jr","전세가율",o=>o.jr,o=>o.jr==null?"-":o.jr+"%"],
  ["v6","6개월 거래 (거래율)",o=>o.v6,o=>`${o.v6}건<small>${o.tr}%</small>`],
  ["dr","실거래가율",o=>o.dr,o=>`${sgn(o.dr)}<small title="최근 거래월(@@N@@까지) 평균 매매가 / 6개월 전(@@O@@) 평균 매매가 (만원)">${o.N?F(o.N):"-"} / ${o.O?F(o.O):"-"}</small>`],
+ ["ck","단지>동>구",o=>o.ck==null?-1:o.ck,o=>o.ck==null?"-":o.ck?"<b style='color:#1f8a4c'>충족</b>":"미충족",0,o=>`단지 ${o.cd==null?"-":F(o.cd)} · 동 ${o.cn==null?"-":F(o.cn)}(${o.cnn||0}건·${o.cw||6}개월) · 구 ${o.cg==null?"-":F(o.cg)} (만원/전용평, 같은 전용 구간 최근 6개월 중위값)`],
  ["pub","공시가격",o=>o.pub,o=>o.pmin==null?"-":`${won(o.pmin)}<small>~ ${won(o.pmax)}</small>`]
 ];
 let sk="sum",sd=-1;
@@ -315,8 +316,8 @@ function render(){
   $("msg").textContent="";
 }
 $("copy").onclick=()=>{
-  const head=["지역","동","단지명","총세대수","평형","평형세대수","입주월","연차","평당가","평당가율","세대수점수","연식점수","평당가점수","거래량점수","실거래가점수","단소지수","매매시세","전세시세","매전갭","전세가율","6개월거래","거래율","실거래가율","최소공시가","최대공시가"].join("\t");
-  const txt=head+"\n"+shown.map(o=>[o.rg,o.dg,o.nm,o.tot,o.py,o.hh,o.ym,o.age,o.ppp,o.pr,...o.s,o.sum,o.P==null?"":Math.round(o.P),o.J==null?"":Math.round(o.J),o.gap,o.jr,o.v6,o.tr,o.dr,o.pmin,o.pmax].map(v=>v==null?"":v).join("\t")).join("\n");
+  const head=["지역","동","단지명","총세대수","평형","평형세대수","입주월","연차","평당가","평당가율","세대수점수","연식점수","평당가점수","거래량점수","실거래가점수","단소지수","매매시세","전세시세","매전갭","전세가율","6개월거래","거래율","실거래가율","최소공시가","최대공시가","단지>동>구"].join("\t");
+  const txt=head+"\n"+shown.map(o=>[o.rg,o.dg,o.nm,o.tot,o.py,o.hh,o.ym,o.age,o.ppp,o.pr,...o.s,o.sum,o.P==null?"":Math.round(o.P),o.J==null?"":Math.round(o.J),o.gap,o.jr,o.v6,o.tr,o.dr,o.pmin,o.pmax,o.ck==null?"판정불가":o.ck?"충족":"미충족"].map(v=>v==null?"":v).join("\t")).join("\n");
   const done=()=>{$("msg").className="msg";$("msg").textContent=`${shown.length}행을 복사했습니다. 엑셀에 붙여넣으세요.`};
   const fb=()=>{const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}t.remove();$("msg").className="msg";$("msg").textContent=ok?`${shown.length}행을 복사했습니다.`:"복사가 막혀 있습니다. 표를 직접 드래그해 복사해 주세요."};
   try{navigator.clipboard.writeText(txt).then(done,fb)}catch(e){fb()}

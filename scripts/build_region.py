@@ -130,6 +130,7 @@ def build(folder, region):
     rr["ar"]=rr.excluUseAr.astype(float); rr["ym"]=rr.dealYear+rr.dealMonth.str.zfill(2); rr["kc"]=rr.aptSeq.map(mp)
     rr=rr[(rr.mr==0)&rr.kc.notna()].drop_duplicates()
     band=lambda a:0 if a<=60 else 1 if a<=85 else 2 if a<=135 else 3
+    t["dgn"]=t.umdNm.map(_dfix)
     t["bd"]=t.ar.map(band); t["pyeong"]=t.ar/3.3058; rr["bd"]=rr.ar.map(band)
     pb=lambda p:10 if p<20 else 20 if p<30 else 30 if p<40 else 40
     CUR=_asof(); CY,CM=int(CUR[:4]),int(CUR[4:])
@@ -218,6 +219,18 @@ def build(folder, region):
                 N_=round(_a.mean()) if len(_a) else None; O_=round(_o.mean()) if len(_o) else None
                 dr_=round((N_/O_-1)*100) if N_ and O_ else None
                 s_r=list(s); s_r[4]=1 if dr_ is None or dr_<=1 else 2 if dr_<=7 else 3 if dr_<=12 else 4 if dr_<=19 else 5; s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5
+                # 선정 조건: 단지 평당가 > 동 평당가 > 구 평당가 (모두 최근 6개월 중위 전용평당가, 같은 전용 구간끼리)
+                def _med(df_): return float((df_.amt/df_.pyeong).median()) if len(df_) else None
+                _dp=_med(_gp[_gp.ym.isin(W6)]); _dn=0; _dw=6; _ddp=None; _gg=None
+                if bd is not None:
+                    _tb=t[t.bd==bd]; _gg=_med(_tb[_tb.ym.isin(W6)])
+                    _td=_tb[_tb.dgn==x.dg]; _x6=_td[_td.ym.isin(W6)]
+                    if len(_x6)>=5: _ddp=_med(_x6); _dn=len(_x6)
+                    else:
+                        _x12=_td[_td.ym>=M13S]; _dw=12
+                        if len(_x12)>=5: _ddp=_med(_x12); _dn=len(_x12)
+                _ok=None if (_dp is None or _ddp is None or _gg is None) else int(_dp>_ddp>_gg)
+                cond=[_dp and round(_dp),_ddp and round(_ddp),_gg and round(_gg),_ok,_dn,_dw]
                 ex=[None]*5
                 if rp is not None: ex[0]=float(rp.ar); ex[1]=f"{rp.ym[:4]}-{rp.ym[4:]}-{int(rp.dealDay):02d}"; ex[3]=str(rp.floor)
                 if rj is not None: ex[2]=f"{rj.ym[:4]}-{rj.ym[4:]}-{int(rj.dealDay):02d}"; ex[4]=str(rj.floor)+"층"+(" · "+rj.contractType if isinstance(rj.contractType,str) else "")
@@ -226,7 +239,7 @@ def build(folder, region):
                 row=[region,x.dg,x.kaptName,tot,pyx,hv,ym,age,ppd,round(BASE/1.3),pr_r,v6,tr,N_,O_,dr_]+s_r+[sum(s_r)]+[None]*12+[v6,None,None,None,None]
                 row[22]=gap; row[23]=jr; row[24:29]=ex; row[29]=used
                 row+=[round(P) if P else None, round(J) if J else None, pn, jn, bl,
-                      {10:'10평형대',20:'20평형대',30:'30평형대',40:'40평형대 이상'}[pb(pyx)], len(_a), len(_o)]
+                      {10:'10평형대',20:'20평형대',30:'30평형대',40:'40평형대 이상'}[pb(pyx)], len(_a), len(_o)]+cond
                 rows.append(row)
     build.share=round(t.kc.notna().mean(),3)
     build.mp=mp; build.mb=missing_bass; build.cx=cx; build.b=b; build.t=t
