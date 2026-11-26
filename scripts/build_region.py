@@ -16,9 +16,11 @@ def mm(cur,k):
 def build(folder, region):
     rd=lambda n:pd.read_csv(os.path.join(folder,n),dtype=str)
     t=rd("trades.csv"); b=rd("apt_bass.csv"); rr=rd("rents.csv")
+    tcan=t[t.cdealType.fillna("")=="O"].drop_duplicates().copy()   # 해제(취소) 신고 건: 표는 거래량에 포함
     t=t[t.cdealType.fillna("")!="O"].drop_duplicates()
     t["amt"]=t.dealAmount.str.replace(",","").astype(float); t["ar"]=t.excluUseAr.astype(float)
     t["ym"]=t.dealYear+t.dealMonth.str.zfill(2)
+    tcan["ar"]=tcan.excluUseAr.astype(float); tcan["ym"]=tcan.dealYear+tcan.dealMonth.str.zfill(2)
     norm=lambda s:re.sub(r"[\s\(\)\-·,./]|아파트|단지","",str(s))
     loc=lambda s:re.search(r"(\S+(?:동|읍|면|가|리))\s+(\d+(?:-\d+)?)",str(s))
     b["nm"]=b.kaptName.map(norm)
@@ -123,6 +125,7 @@ def build(folder, region):
         if sc[0][2]: mp[c.aptSeq]=sc[0][1]
         else: missing_bass[c.aptSeq]=sc[0][1]
     t["kc"]=t.aptSeq.map(mp)
+    tcan["kc"]=tcan.aptSeq.map(mp)
     rr["mr"]=rr.monthlyRent.str.replace(",","").astype(float); rr["dep"]=rr.deposit.str.replace(",","").astype(float)
     rr["ar"]=rr.excluUseAr.astype(float); rr["ym"]=rr.dealYear+rr.dealMonth.str.zfill(2); rr["kc"]=rr.aptSeq.map(mp)
     rr=rr[(rr.mr==0)&rr.kc.notna()].drop_duplicates()
@@ -162,6 +165,7 @@ def build(folder, region):
             gb=g if bd is None else g[g.bd==bd]; g6=gb[gb.ym.isin(W6)]; v6=len(g6)
             if kt and ar0 is not None and _tk(ar0) is not None:           # 타입(전용면적)별 거래량: 같은 K-apt 타입에 배정되는 거래만
                 _t0=_tk(ar0); v6=int(sum(1 for a_,m_ in zip(g.ar,g.ym) if m_ in W6 and _tk(a_)==_t0))
+                _gc=tcan[tcan.kc==x.kaptCode]; v6+=int(sum(1 for a_,m_ in zip(_gc.ar,_gc.ym) if m_ in W6 and _tk(a_)==_t0))
             src=g6 if v6 else gb[gb.ym>=M13S]
             pp=src.amt.sum()/src.pyeong.sum() if len(src) else None
             py=round((gb.ar.median() if len(gb) else (84 if bd is None else [50,72,100,150][bd]))*1.3/3.3058)
@@ -203,8 +207,14 @@ def build(folder, region):
                 else:
                     used=0; ppd=round(pp/1.3) if pp else None; pr_r=pr
                 # 실거래가율: 같은 평형(평수) 거래의 직전월 평균 매매가 ÷ 6개월 전 달 평균 매매가 − 1 (표 기준과 동일)
-                _gp=gb[(gb.ar*1.3/3.3058).round()==pyx]
-                _a=_gp[_gp.ym==mm(CUR,-1)].amt; _o=_gp[_gp.ym==mm(CUR,-6)].amt
+                if kt and ar0 is not None and _tk(ar0) is not None:       # 같은 K-apt 타입에 배정되는 거래만 (타입별 평균)
+                    _t0=_tk(ar0); _gp=g[g.ar.map(lambda z_:_tk(z_)==_t0).astype(bool)]
+                else: _gp=gb[(gb.ar*1.3/3.3058).round()==pyx]
+                # N: 직전월까지 중 거래가 있는 가장 최근 달의 평균, O: 6개월 전 달(없으면 그 이전 가장 가까운 달)의 평균
+                _ym_n=sorted(m_ for m_ in set(_gp.ym) if m_<=mm(CUR,-1) and m_>=M13S)
+                _ym_o=sorted(m_ for m_ in set(_gp.ym) if m_<=mm(CUR,-6) and m_>=M13S)
+                _a=_gp[_gp.ym==_ym_n[-1]].amt if _ym_n else _gp.iloc[0:0].amt
+                _o=_gp[_gp.ym==_ym_o[-1]].amt if _ym_o else _gp.iloc[0:0].amt
                 N_=round(_a.mean()) if len(_a) else None; O_=round(_o.mean()) if len(_o) else None
                 dr_=round((N_/O_-1)*100) if N_ and O_ else None
                 s_r=list(s); s_r[4]=1 if dr_ is None or dr_<=1 else 2 if dr_<=7 else 3 if dr_<=12 else 4 if dr_<=19 else 5; s_r[2]=1 if pr_r is None or pr_r<=70 else 2 if pr_r<=100 else 3 if pr_r<=130 else 4 if pr_r<160 else 5
