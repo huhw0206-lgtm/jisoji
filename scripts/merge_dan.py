@@ -15,7 +15,7 @@ def _lab(a,b):
     return f"{a[:4]}-{a[4:]}~{b[4:]}" if a[:4]==b[:4] else f"{a[:4]}-{a[4:]}~{b[:4]}-{b[4:]}"
 def _one(k):
     z=_mm(CUR,k); return f"{z[:4]}-{z[4:]}"
-for old,new in (("@@N@@",_one(-1)),("@@O@@",_one(-6)),("2026-08~10",_lab(-3,-1)),("2026-03~05",_lab(-8,-6))):
+for old,new in (("@@V@@",_lab(-6,0)),("@@N@@",_one(-1)),("@@O@@",_one(-6)),("2026-08~10",_lab(-3,-1)),("2026-03~05",_lab(-8,-6))):
     DAN=DAN.replace(old,new)
 assert 'const ASOF="2026-11-14";' in DAN
 DAN=DAN.replace('const ASOF="2026-11-14";','const ASOF="%s";'%_k.strftime("%Y-%m-%d"))

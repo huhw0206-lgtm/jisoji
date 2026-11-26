@@ -130,11 +130,17 @@ def build(folder, region):
     t["bd"]=t.ar.map(band); t["pyeong"]=t.ar/3.3058; rr["bd"]=rr.ar.map(band)
     pb=lambda p:10 if p<20 else 20 if p<30 else 30 if p<40 else 40
     CUR=_asof(); CY,CM=int(CUR[:4]),int(CUR[4:])
-    W6=[mm(CUR,k) for k in range(-6,0)]; R3=[mm(CUR,k) for k in (-3,-2,-1)]; O3=[mm(CUR,k) for k in (-8,-7,-6)]; M12S=mm(CUR,-11); M13S=mm(CUR,-12)
+    # W6 = 표 기준: 6개월 전 달부터 당월까지
+    W6=[mm(CUR,k) for k in range(-6,1)]; R3=[mm(CUR,k) for k in (-3,-2,-1)]; O3=[mm(CUR,k) for k in (-8,-7,-6)]; M12S=mm(CUR,-11); M13S=mm(CUR,-12)
     w6=t[t.ym.isin(W6)]
     dist={k:g.amt.sum()/g.pyeong.sum() for k,g in w6.groupby("bd")}
     allp=w6.amt.sum()/w6.pyeong.sum(); c=0.704
     rows=[]
+    # K-apt 면적정보: 단지코드별 전용면적별 세대수 (data/kapt_area.csv). 없으면 기존 4개 구간 방식.
+    KA={}
+    _kp=os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","data","kapt_area.csv")
+    if os.path.exists(_kp):
+        for _c,_g in pd.read_csv(_kp,dtype={"kaptCode":str}).groupby("kaptCode"): KA[_c]=list(zip(_g.ar.astype(float),_g.ho.astype(int)))
     for _,x in b.iterrows():
         try: tot=int(float(x.hoCnt)) if float(x.hoCnt or 0)>0 else int(float(x.kaptdaCnt))
         except: continue
@@ -143,10 +149,19 @@ def build(folder, region):
         hh=[int(float(x[k] or 0)) for k in ["kaptMparea60","kaptMparea85","kaptMparea135","kaptMparea136"]]
         g=t[t.kc==x.kaptCode]; gr=rr[rr.kc==x.kaptCode]
         tys=sorted(set(g[g.ym>=M12S].ar.round(2))|set(gr[gr.ym>=M12S].ar.round(2)))
+        kt=KA.get(x.kaptCode)
+        def _tk(a_):
+            if not kt: return None
+            k_=min(kt,key=lambda z:abs(z[0]-a_))
+            return k_ if abs(k_[0]-a_)<=0.5 else None
         units=[(band(a_),(hh[band(a_)] if hh[band(a_)]>0 else tot),a_) for a_ in tys]
+        if kt:
+            units=[(band(a_),(_tk(a_)[1] if _tk(a_) else (hh[band(a_)] if hh[band(a_)]>0 else tot)),a_) for a_ in tys]
         if not units: units=[(None,tot,None)]
         for bd,hv,ar0 in units:
             gb=g if bd is None else g[g.bd==bd]; g6=gb[gb.ym.isin(W6)]; v6=len(g6)
+            if kt and ar0 is not None and _tk(ar0) is not None:           # 타입(전용면적)별 거래량: 같은 K-apt 타입에 배정되는 거래만
+                _t0=_tk(ar0); v6=int(sum(1 for a_,m_ in zip(g.ar,g.ym) if m_ in W6 and _tk(a_)==_t0))
             src=g6 if v6 else gb[gb.ym>=M13S]
             pp=src.amt.sum()/src.pyeong.sum() if len(src) else None
             py=round((gb.ar.median() if len(gb) else (84 if bd is None else [50,72,100,150][bd]))*1.3/3.3058)
