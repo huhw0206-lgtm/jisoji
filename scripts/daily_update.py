@@ -17,7 +17,7 @@ import collect_all as ca
 
 ca.OUT = os.path.join(ROOT, "data", "수집결과")
 ca.REGIONS["인천 연수구"] = "28185"
-BUDGET = int(os.environ.get("CALL_BUDGET", "4000"))
+BUDGET = int(os.environ.get("CALL_BUDGET", "20000"))
 KST = datetime.utcnow() + timedelta(hours=9)
 FORCE = os.environ.get("FORCE_BASS") == "1" or KST.day == 1
 KEEP_MONTHS = 26            # 24개월 + 여유 (이보다 오래된 거래는 정리)
@@ -146,8 +146,8 @@ def main():
             if os.path.getsize(os.path.join(ca.region_dir(name), "trades.csv")) < 20: continue
             silv_ok = silv_refresh(name, ca.REGIONS[name])
             if not silv_ok: print("  [알림] 분양권 전매 API를 쓸 수 없어 건너뜁니다 (활용신청·승인 여부를 확인하세요)")
-        except SystemExit as e:
-            if stop_on(e, name): print(f"사용한 호출 {calls}건"); return
+        except SystemExit as e:                  # 분양권 API 한도에 걸려도 과거 이어받기는 계속 진행
+            print(f"  [알림] 분양권 전매 수집 중단: {e.code}"); silv_ok = False
     # 과거 이어받기: 12개월 이전 → 24개월
     for name in done:
         try:
