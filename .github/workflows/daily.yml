@@ -44,6 +44,12 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           FORCE_BASS: ${{ github.event.inputs.force_master }}
         run: python scripts/daily_update.py
+      - name: 경기지표 수집 (KOSIS·ECOS)
+        if: github.event_name != 'push'
+        env:
+          KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: python scripts/collect_biz.py || true
       - name: 수집한 데이터 저장
         if: github.event_name != 'push'
         run: |

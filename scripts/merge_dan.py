@@ -76,6 +76,22 @@ S=rep(S,"</main>",view+"</main>")
 S=rep(S,'const flow=location.hash==="#flow",cmp=location.hash==="#compare";','const flow=location.hash==="#flow",cmp=location.hash==="#compare",dan=location.hash==="#dan";')
 S=rep(S,'Q("#viewFlow").hidden=!flow;Q("#viewAna").hidden=flow||cmp;Q("#viewCmp").hidden=!cmp;','Q("#viewFlow").hidden=!flow;Q("#viewAna").hidden=flow||cmp||dan;Q("#viewCmp").hidden=!cmp;Q("#viewDan").hidden=!dan;')
 S=rep(S,'Q("#tabAna").setAttribute("aria-current",flow||cmp?"false":"page");','Q("#tabAna").setAttribute("aria-current",flow||cmp||dan?"false":"page");Q("#tabDan").setAttribute("aria-current",dan?"page":"false");')
+# ---- 경기분석 탭
+BIZ=open(J("templates","biz_view.html"),encoding="utf-8").read()
+_bs=re.search(r"<style>(.*?)</style>",BIZ,re.S).group(1)
+_bh=BIZ.split("</style>",1)[1]
+_bv,_bj=_bh.split("<script>",1)
+_bj=_bj.rsplit("</script>",1)[0]
+S=rep(S,"</style>","/* ===== 경기분석 탭 ===== */\n"+_bs+"</style>")
+S=rep(S,'<a href="#dan" id="tabDan">단소지수</a></nav>','<a href="#dan" id="tabDan">단소지수</a><a href="#biz" id="tabBiz">경기분석</a></nav>')
+S=rep(S,"</main>",_bv.strip()+"\n</main>")
+S=rep(S,'dan=location.hash==="#dan";','dan=location.hash==="#dan",biz=location.hash==="#biz";')
+S=rep(S,'Q("#viewAna").hidden=flow||cmp||dan;','Q("#viewAna").hidden=flow||cmp||dan||biz;')
+S=rep(S,'Q("#viewDan").hidden=!dan;','Q("#viewDan").hidden=!dan;Q("#viewBiz").hidden=!biz;')
+S=rep(S,'flow||cmp||dan?"false":"page");','flow||cmp||dan||biz?"false":"page");Q("#tabBiz").setAttribute("aria-current",biz?"page":"false");')
+_bp=J("data","biz.json")
+_bd=open(_bp,encoding="utf-8").read().strip() if os.path.exists(_bp) else "{}"
+S=S.rstrip()+"\n<script>\n"+_bj.replace("__BIZDATA__",_bd)+"\n</script>\n"
 assert S.rstrip().endswith("</script>")
 S=S.rstrip()+"\n"+js
 os.makedirs(J("build"),exist_ok=True)

@@ -1,0 +1,72 @@
+<style>
+#viewBiz{font-family:var(--f-body);font-size:14px;line-height:1.5}
+#viewBiz h1{font-size:20px;margin:0 0 12px}
+#viewBiz .bz-sec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+#viewBiz .bz-hd{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;align-items:baseline}
+#viewBiz .bz-nm{font-weight:600;color:var(--mute)}
+#viewBiz .bz-sum{text-align:right;font-weight:600}
+#viewBiz .bz-sum small{font-weight:400;color:var(--mute)}
+#viewBiz table{width:100%;border-collapse:collapse;margin-top:8px}
+#viewBiz th,#viewBiz td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+#viewBiz th:first-child,#viewBiz td:first-child{text-align:left}
+#viewBiz th{color:var(--mute);font-weight:500;font-size:12.5px}
+#viewBiz .bz-up{color:var(--down);font-weight:600}
+#viewBiz .bz-dn{color:var(--up);font-weight:600}
+#viewBiz .bz-eq{color:var(--eq);font-weight:600}
+#viewBiz .bz-more{margin-top:8px;font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);padding:5px 12px}
+#viewBiz .bz-note{color:var(--mute);font-size:12.5px;display:grid;gap:4px;max-width:900px}
+#viewBiz .bz-empty{color:var(--mute);padding:10px 0}
+</style>
+<div class="view" id="viewBiz" hidden>
+  <h1 id="bz_title">월간 보고서</h1>
+  <div id="bz_body"></div>
+  <div class="bz-note">
+    <div>· 판정은 한 달 값이 아니라 흐름으로 보세요. 3개월 이상 같은 방향이 이어질 때 의미 있는 신호로 봅니다.</div>
+    <div>· 내수경기(동행지수 순환변동치)는 100 위면 추세보다 좋은 상태, 아래면 나쁜 상태이며 매월 말 산업활동동향에서 전월 수치가 나옵니다. 최근 몇 달 값은 이후 수정될 수 있습니다.</div>
+    <div>· 기준금리의 인상·인하는 가장 최근 금리가 바뀐 방향이며, 동결 기간에는 직전 방향을 유지해 표시합니다. 유동성은 Lf 전년동월대비 증가율이 전월보다 커지면 증가, 작아지면 감소입니다.</div>
+    <div>· 출처: 통계청(KOSIS) 경기종합지수, 한국은행(ECOS) 기준금리·Lf. 매일 자동으로 확인해 갱신합니다.</div>
+  </div>
+</div>
+<script>
+(function(){
+const BZ=__BIZDATA__;
+const $=id=>document.getElementById(id);
+const fmtM=m=>m.slice(0,4)+"."+m.slice(4);
+const sgn=(v,d,u)=>(v>0?"+":"")+v.toFixed(d)+(u||"");
+const defs=[
+ {k:"coin",name:"내수경기(동행지수)",fmt:v=>v.toFixed(1),dec:1,unit:"",mode:"diff",lab:["상향","보합","하향"]},
+ {k:"rate",name:"기준금리",fmt:v=>(+v.toFixed(2))+"%",dec:2,unit:"%p",mode:"carry",lab:["인상","","인하"]},
+ {k:"lf",name:"유동성(Lf, 전년동월대비)",fmt:v=>(v>0?"+":"")+(+v.toFixed(2))+"%",dec:2,unit:"%p",mode:"diff",lab:["증가","보합","감소"]}
+];
+function judge(d,ms){          // 월별 판정 배열 (0 오름/1 같음/2 내림, 금리는 직전 방향 유지)
+  const out={};let last=null;
+  for(let i=0;i<ms.length;i++){
+    if(i===0){out[ms[i]]=null;continue}
+    const a=BZ[d.k][ms[i]],b=BZ[d.k][ms[i-1]],c=a>b+1e-9?0:a<b-1e-9?2:1;
+    if(d.mode==="carry"){if(c!==1)last=c;out[ms[i]]=last}else out[ms[i]]=c;
+  }
+  return out;
+}
+const cls=c=>c===0?"bz-up":c===2?"bz-dn":"bz-eq";
+let N=6;
+function draw(){
+  const body=$("bz_body");let latestAll="";const html=[];
+  for(const d of defs){
+    const s=BZ[d.k]||{},ms=Object.keys(s).sort();
+    if(!ms.length){html.push(`<div class="bz-sec"><div class="bz-hd"><span class="bz-nm">${d.name}</span></div><div class="bz-empty">데이터가 아직 없습니다. 자동 갱신이 한 번 돌면 채워집니다.</div></div>`);continue}
+    const J=judge(d,ms),m=ms[ms.length-1],p=ms[ms.length-2];
+    if(m>latestAll)latestAll=m;
+    const c=J[m],dv=p!=null?s[m]-s[p]:null;
+    const chg=dv==null?"":(Math.abs(dv)<1e-9?"전월 대비 변동 없음":"전월 대비 "+sgn(dv,d.dec,d.unit));
+    const jt=c==null?"":(d.lab[c]||"");
+    const rows=ms.slice(-N).reverse().map(x=>`<tr><td>${fmtM(x)}</td><td>${d.fmt(s[x])}</td><td class="${cls(J[x])}">${J[x]==null?"-":(d.lab[J[x]]||"보합")}</td></tr>`).join("");
+    html.push(`<div class="bz-sec"><div class="bz-hd"><span class="bz-nm">${d.name}</span><span class="bz-sum">${d.fmt(s[m])} · <span class="${cls(c)}">${jt||"-"}</span> <small>(${fmtM(m)})</small>${chg?" · "+chg:""}</span></div><table><thead><tr><th>월</th><th>값</th><th>판정</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  }
+  html.push(`<button class="bz-more" id="bz_more">${N>6?"최근 6개월만 보기":"24개월 보기"}</button>`);
+  body.innerHTML=html.join("");
+  $("bz_title").textContent="월간 보고서"+(latestAll?" · "+fmtM(latestAll):"");
+  $("bz_more").onclick=()=>{N=N>6?6:24;draw()};
+}
+draw();
+})();
+</script>
