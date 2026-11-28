@@ -17,7 +17,7 @@ import collect_all as ca
 
 ca.OUT = os.path.join(ROOT, "data", "수집결과")
 ca.REGIONS["인천 연수구"] = "28185"
-BUDGET = int(os.environ.get("CALL_BUDGET", "20000"))
+BUDGET = int(os.environ.get("CALL_BUDGET", "100000"))
 KST = datetime.utcnow() + timedelta(hours=9)
 FORCE = os.environ.get("FORCE_BASS") == "1" or KST.day == 1
 KEEP_MONTHS = 26            # 24개월 + 여유 (이보다 오래된 거래는 정리)
