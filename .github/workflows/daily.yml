@@ -53,7 +53,15 @@ jobs:
           git diff --cached --quiet || git commit -m "데이터 갱신 $(date -u +%F)"
           git pull --rebase origin ${{ github.ref_name }} || true
           git push || true
+      # 데이터·템플릿·스크립트가 그대로면 지난번에 만든 사이트를 재사용 (앱만 고쳤을 때 빠르게 배포)
+      - name: 사이트 캐시
+        id: sitecache
+        uses: actions/cache@v4
+        with:
+          path: docs
+          key: site-${{ hashFiles('data/**', 'templates/**', 'scripts/**') }}
       - name: 사이트 만들기
+        if: steps.sitecache.outputs.cache-hit != 'true'
         run: python scripts/build_site.py
       - name: 내 일정 앱 넣기
         run: |
