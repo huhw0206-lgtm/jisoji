@@ -19,7 +19,7 @@ for old,new in (("@@V@@",_lab(-6,0)),("@@N@@",_one(-1)),("@@O@@",_one(-6)),("202
     DAN=DAN.replace(old,new)
 assert 'const ASOF="2026-11-14";' in DAN
 DAN=DAN.replace('const ASOF="2026-11-14";','const ASOF="%s";'%_k.strftime("%Y-%m-%d"))
-NAMES="pinfo bar fld row chk file tab rg badge spacer panel bk gr meta count msg err tbl nm chip g1 g2 g3 g4 g5 sum up dn notes rules empty lab on rwrap rbtn rpop rcol rli".split()
+NAMES="btnrow pinfo bar fld row chk file tab rg badge spacer panel bk gr meta count msg err tbl nm chip g1 g2 g3 g4 g5 sum up dn notes rules empty lab on rwrap rbtn rpop rcol rli".split()
 def cls_attr(m):
     out=[]
     for t in m.group(1).split():
