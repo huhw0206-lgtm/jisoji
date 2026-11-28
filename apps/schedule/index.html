@@ -421,6 +421,26 @@
     };
     const authMsg = (e) => AUTH_MSG[e && e.code] || '잠시 후 다시 해주세요';
 
+    // ---------- 긴 메모는 5줄까지만 보이고 '더보기' ----------
+    function MemoText({ text, onOpen, color }) {
+      const [open, setOpen] = useState(false);
+      const [long, setLong] = useState(false);
+      const ref = useRef(null);
+      React.useLayoutEffect(() => {
+        const el = ref.current; if (!el || open) return;
+        setLong(el.scrollHeight > el.clientHeight + 2);
+      }, [text, open]);
+      const clamp = !open ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 5, overflow: 'hidden' } : {};
+      return (
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p ref={ref} onClick={onOpen} style={{ fontWeight: 500, whiteSpace: 'pre-wrap', margin: 0, wordBreak: 'break-word', color, cursor: 'pointer', lineHeight: 1.5, ...clamp }}>{text}</p>
+          {(long || open) && (
+            <button onClick={() => setOpen(!open)} style={{ background: 'none', border: 'none', padding: '0.25rem 0 0', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 'bold', color: 'inherit', opacity: 0.55 }}>{open ? '접기' : '더보기'}</button>
+          )}
+        </div>
+      );
+    }
+
     const SAVED = loadLocal();
     const EMPTY_FIX = { name: '', amount: '', day: 25, cycle: 'monthly', month: 1, startY: new Date().getFullYear(), startM: new Date().getMonth() + 1, months: 6, card: '', amtMode: 'month', category: '주거', method: '', variable: false, notify: true };
 
@@ -1148,7 +1168,7 @@
                   return (
                   <div key={memo.id} style={{ backgroundColor: memo.star ? '#FFFBEB' : theme.card, borderRadius: '1rem', padding: '1rem', borderLeft: `4px solid ${MEMO_CATS[mc]}`, boxShadow: memo.star ? '0 0 0 1px #FDE68A inset' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                      <p onClick={() => setMemoEdit({ id: memo.id, text: memo.text, cat: mc, star: !!memo.star })} style={{ fontWeight: 500, whiteSpace: 'pre-wrap', margin: 0, flex: 1, minWidth: 0, wordBreak: 'break-word', color: memo.star ? '#1f2937' : 'inherit', cursor: 'pointer' }}>{memo.text}</p>
+                      <MemoText text={memo.text} color={memo.star ? '#1f2937' : 'inherit'} onOpen={() => setMemoEdit({ id: memo.id, text: memo.text, cat: mc, star: !!memo.star })} />
                       <button onClick={() => { haptic(); setMemos(prev => prev.map(x => x.id === memo.id ? { ...x, star: !x.star } : x)); }} aria-label={memo.star ? '중요 해제' : '중요 표시'} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.125rem', margin: '-0.125rem -0.25rem 0 0', fontSize: '1.375rem', lineHeight: 1, color: memo.star ? '#F5B301' : 'inherit', opacity: memo.star ? 1 : 0.3, flexShrink: 0 }}>{memo.star ? '★' : '☆'}</button>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
