@@ -99,6 +99,7 @@
     ];
     const cardColor = (c) => (CARDS.find(x => x[0] === c) || [0, '#6B7280'])[1];
     const cardLabel = (c) => (c === '기타' ? '기타 카드' : c === '카카오' ? '카카오뱅크' : c === '토스' ? '토스뱅크' : c + '카드');
+    const MEMO_CATS = { '부동산': '#8B5CF6', '사업': '#10B981', '일상': '#F97316', '기타': '#6B7280' };
     const FIX_CATS = {
       '주거': '#8B5CF6', '통신': '#3B82F6', '보험': '#10B981', '대출': '#EF4444',
       '구독': '#F59E0B', '사업': '#0EA5E9', '기타': '#6B7280'
@@ -440,6 +441,8 @@
 
       const [memos, setMemos] = useState(() => (SAVED && SAVED.memos) || []);
       const [memoInput, setMemoInput] = useState('');
+      const [memoFilter, setMemoFilter] = useState('전체');
+      const [memoCat, setMemoCat] = useState('기타');
       const [showAddModal, setShowAddModal] = useState(false);
       const [newSchedule, setNewSchedule] = useState({ title: '', date: ymd(currentYear, currentMonthNum, currentDateNum), startTime: '09:00', endTime: '10:00', category: '업무' });
       const [schedules, setSchedules] = useState(() => (SAVED && SAVED.schedules) || []);
@@ -559,7 +562,8 @@
 
       const handleAddMemo = () => {
         if (!memoInput.trim()) return;
-        setMemos([{ id: Date.now(), text: memoInput.trim(), date: nowLabel() }, ...memos]);
+        setMemos([{ id: Date.now(), text: memoInput.trim(), date: nowLabel(), cat: memoCat }, ...memos]);
+        haptic();
         setMemoInput('');
       };
 
@@ -1090,23 +1094,53 @@
 
           {activeTab === '메모' && (
             <div style={{ padding: '1.5rem 1rem' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 1.5rem' }}>메모</h1>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 1rem' }}>메모</h1>
+              <div style={{ display: 'flex', gap: '0.375rem', overflowX: 'auto', margin: '0 -1rem 1rem', padding: '0 1rem', WebkitOverflowScrolling: 'touch' }}>
+                {['전체', ...Object.keys(MEMO_CATS)].map(c => {
+                  const on = memoFilter === c;
+                  const col = c === '전체' ? theme.text : MEMO_CATS[c];
+                  const n = c === '전체' ? memos.length : memos.filter(m => (m.cat || '기타') === c).length;
+                  return (
+                    <button key={c} onClick={() => { if (!on) haptic(); setMemoFilter(c); if (c !== '전체') setMemoCat(c); }} style={{ flexShrink: 0, padding: '0.4375rem 0.875rem', borderRadius: '9999px', fontSize: '0.8125rem', fontWeight: 'bold', cursor: 'pointer', border: `1px solid ${on ? col : theme.border}`, backgroundColor: on ? col : theme.card, color: on ? (c === '전체' ? theme.bg : 'white') : 'inherit' }}>
+                      {c} <span style={{ opacity: 0.7, fontWeight: 'normal' }}>{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '1rem', marginBottom: '1.5rem' }}>
                 <textarea value={memoInput} onChange={(e) => setMemoInput(e.target.value)} placeholder="아이디어나 메모를 자유롭게 적어보세요..." style={{ width: '100%', background: 'transparent', resize: 'none', outline: 'none', minHeight: '100px', color: theme.text, border: 'none' }}></textarea>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                    {Object.keys(MEMO_CATS).map(c => (
+                      <button key={c} onClick={() => setMemoCat(c)} style={{ padding: '0.25rem 0.5625rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', border: `1px solid ${memoCat === c ? MEMO_CATS[c] : theme.border}`, backgroundColor: memoCat === c ? MEMO_CATS[c] + '1F' : 'transparent', color: memoCat === c ? MEMO_CATS[c] : 'inherit', opacity: memoCat === c ? 1 : 0.6 }}>{c}</button>
+                    ))}
+                  </div>
                   <button onClick={handleAddMemo} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.5rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>저장</button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {memos.map(memo => (
-                  <div key={memo.id} style={{ backgroundColor: theme.card, borderRadius: '1rem', padding: '1rem' }}>
+                {memos.filter(m => memoFilter === '전체' || (m.cat || '기타') === memoFilter).length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '2rem 0', opacity: 0.5, fontSize: '0.875rem' }}>{memoFilter === '전체' ? '아직 메모가 없어요.' : `${memoFilter} 메모가 없어요.`}</div>
+                )}
+                {memos.filter(m => memoFilter === '전체' || (m.cat || '기타') === memoFilter).map(memo => {
+                  const mc = memo.cat || '기타';
+                  const cycle = () => {
+                    const ks = Object.keys(MEMO_CATS); const next = ks[(ks.indexOf(mc) + 1) % ks.length];
+                    haptic(); setMemos(prev => prev.map(x => x.id === memo.id ? { ...x, cat: next } : x));
+                  };
+                  return (
+                  <div key={memo.id} style={{ backgroundColor: theme.card, borderRadius: '1rem', padding: '1rem', borderLeft: `4px solid ${MEMO_CATS[mc]}` }}>
                     <p style={{ fontWeight: 500, whiteSpace: 'pre-wrap', margin: 0 }}>{memo.text}</p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{memo.date}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button onClick={cycle} title="눌러서 분류 바꾸기" style={{ padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.6875rem', fontWeight: 'bold', cursor: 'pointer', border: 'none', backgroundColor: MEMO_CATS[mc] + '1F', color: MEMO_CATS[mc] }}>{mc}</button>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{memo.date}</span>
+                      </span>
                       <button onClick={() => setConfirmDelete({ type: 'memo', id: memo.id, title: memo.text.slice(0, 20) })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', opacity: 0.5, color: 'inherit' }}>삭제</button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
