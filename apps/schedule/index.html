@@ -30,6 +30,8 @@
     }
     textarea { font-family: inherit; font-size: 16px; }
     .time-row > div { min-width: 0; }
+    /* 금액 칸: 오른쪽 '원' 글자 자리만큼 여백 */
+    input[type="text"].money { padding-right: 2.5rem !important; text-align: right; }
   </style>
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -914,7 +916,7 @@
                   <div>
                     <label style={label}>{fixEdit.variable ? '예상 금액' : '금액'}</label>
                     <div style={{ position: 'relative' }}>
-                      <input type="text" inputMode="numeric" value={fixEdit.amount} onChange={(e) => setFixEdit({ ...fixEdit, amount: commaInput(e.target.value) })} placeholder="0" style={{ ...inputStyle, textAlign: 'right', paddingRight: '2.25rem' }} />
+                      <input type="text" inputMode="numeric" value={fixEdit.amount} onChange={(e) => setFixEdit({ ...fixEdit, amount: commaInput(e.target.value) })} placeholder="0" className="money" style={inputStyle} />
                       <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 'bold', color: '#6B7280' }}>원</span>
                     </div>
                   </div>
@@ -973,7 +975,7 @@
                 <h3 style={{ fontWeight: 'bold', margin: '0 0 0.25rem' }}>{payInput.f.name}</h3>
                 <p style={{ fontSize: '0.8125rem', opacity: 0.6, margin: '0 0 1rem' }}>이번에 실제로 나간 금액을 적어주세요.</p>
                 <div style={{ position: 'relative' }}>
-                  <input autoFocus type="text" inputMode="numeric" value={payInput.value} onChange={(e) => setPayInput({ ...payInput, value: commaInput(e.target.value) })} style={{ ...inputStyle, textAlign: 'right', paddingRight: '2.25rem' }} />
+                  <input autoFocus type="text" inputMode="numeric" value={payInput.value} onChange={(e) => setPayInput({ ...payInput, value: commaInput(e.target.value) })} className="money" style={inputStyle} />
                   <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 'bold', color: '#6B7280' }}>원</span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
