@@ -36,6 +36,10 @@
     }
     textarea { font-family: inherit; font-size: 16px; }
     .time-row > div { min-width: 0; }
+    .rich { outline: none; font-size: 16px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; -webkit-user-select: text; user-select: text; }
+    .rich[data-empty="1"]::before { content: attr(data-ph); opacity: 0.45; pointer-events: none; }
+    .rich p, .rich div, .memo-html p, .memo-html div { margin: 0; }
+    .memo-html { white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
     /* 금액 칸: 오른쪽 '원' 글자 자리만큼 여백 */
     input[type="text"].money { padding-right: 2.5rem !important; text-align: right; }
     input[type="text"].memo-search { padding-left: 2.5rem !important; padding-right: 2.5rem !important; }
@@ -421,19 +425,122 @@
     };
     const authMsg = (e) => AUTH_MSG[e && e.code] || '잠시 후 다시 해주세요';
 
-    // ---------- 긴 메모는 5줄까지만 보이고 '더보기' ----------
-    function MemoText({ text, onOpen, color }) {
+    // ---------- 메모 서식 (굵게·밑줄·색 등) ----------
+    const escHTML = (t) => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    const OK_TAGS = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, BR: 1, DIV: 1, P: 1, SPAN: 1, FONT: 1 };
+    // 저장된 서식에서 허용한 태그·색만 남김
+    const cleanHTML = (html) => {
+      try {
+        const doc = new DOMParser().parseFromString('<div>' + (html || '') + '</div>', 'text/html');
+        const walk = (node) => {
+          Array.from(node.childNodes).forEach(ch => {
+            if (ch.nodeType === 3) return;
+            if (ch.nodeType !== 1 || !OK_TAGS[ch.tagName]) {
+              if (ch.nodeType === 1 && !/^(SCRIPT|STYLE|IFRAME|OBJECT)$/.test(ch.tagName)) { walk(ch); while (ch.firstChild) node.insertBefore(ch.firstChild, ch); }
+              node.removeChild(ch); return;
+            }
+            const color = ch.style && ch.style.color || (ch.tagName === 'FONT' ? ch.getAttribute('color') : '');
+            const bg = ch.style && (ch.style.backgroundColor || '');
+            const fw = ch.style && ch.style.fontWeight;
+            const td = ch.style && (ch.style.textDecoration || ch.style.textDecorationLine || '');
+            Array.from(ch.attributes).forEach(a => ch.removeAttribute(a.name));
+            const st = [];
+            if (color && /^[#a-z0-9(),.\s]+$/i.test(color)) st.push('color:' + color);
+            if (bg && /^[#a-z0-9(),.\s]+$/i.test(bg)) st.push('background-color:' + bg);
+            if (fw && /^(bold|[5-9]00)$/.test(fw)) st.push('font-weight:bold');
+            if (/underline/.test(td)) st.push('text-decoration:underline');
+            if (/line-through/.test(td)) st.push('text-decoration:line-through');
+            if (st.length) ch.setAttribute('style', st.join(';'));
+            walk(ch);
+          });
+        };
+        const root = doc.body.firstChild; walk(root);
+        return root.innerHTML;
+      } catch (e) { return escHTML(html); }
+    };
+    const memoHTML = (m) => m.html ? cleanHTML(m.html) : escHTML(m.text);
+
+    const TEXT_COLORS = [['기본', ''], ['빨강', '#E11D48'], ['주황', '#EA580C'], ['초록', '#16A34A'], ['파랑', '#2563EB'], ['보라', '#7C3AED']];
+    const MARKS = [['노랑', '#FEF08A'], ['초록', '#BBF7D0'], ['분홍', '#FBCFE8'], ['하늘', '#BAE6FD']];
+
+    function RichEditor({ initialHTML, onChange, placeholder, minHeight = '6rem', autoFocus, theme }) {
+      const ref = useRef(null);
+      const [empty, setEmpty] = useState(!initialHTML);
+      const [act, setAct] = useState({});
+      const [panel, setPanel] = useState('');
+      useEffect(() => {
+        const el = ref.current; if (!el) return;
+        el.innerHTML = initialHTML || '';
+        setEmpty(!el.innerText.trim());
+        if (autoFocus) { el.focus(); try { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } catch (e) {} }
+        const onSel = () => {
+          if (!ref.current || !ref.current.contains(document.getSelection().anchorNode)) return;
+          try { setAct({ bold: document.queryCommandState('bold'), underline: document.queryCommandState('underline'), strike: document.queryCommandState('strikeThrough') }); } catch (e) {}
+        };
+        document.addEventListener('selectionchange', onSel);
+        return () => document.removeEventListener('selectionchange', onSel);
+      }, []);
+      const emit = () => {
+        const el = ref.current; if (!el) return;
+        const text = el.innerText.replace(/\n{3,}/g, '\n\n');
+        setEmpty(!text.trim());
+        onChange(el.innerHTML, text);
+      };
+      const cmd = (name, val) => {
+        try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+        try { document.execCommand(name, false, val); } catch (e) {}
+        haptic(); emit();
+        try { setAct({ bold: document.queryCommandState('bold'), underline: document.queryCommandState('underline'), strike: document.queryCommandState('strikeThrough') }); } catch (e) {}
+      };
+      const keep = (e) => e.preventDefault();   // 버튼을 눌러도 선택한 글자가 풀리지 않게
+      const tb = (on) => ({ minWidth: '2.125rem', height: '2.125rem', borderRadius: '0.5rem', border: `1px solid ${on ? theme.text : 'transparent'}`, backgroundColor: on ? theme.text : 'transparent', color: on ? theme.bg : 'inherit', cursor: 'pointer', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 0.375rem', flexShrink: 0 });
+      return (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', flexWrap: 'wrap', paddingBottom: '0.375rem', marginBottom: '0.5rem', borderBottom: `1px solid ${theme.border}` }}>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => cmd('bold')} style={{ ...tb(act.bold), fontWeight: 900 }} aria-label="굵게">B</button>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => cmd('underline')} style={{ ...tb(act.underline), textDecoration: 'underline' }} aria-label="밑줄">U</button>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => cmd('strikeThrough')} style={{ ...tb(act.strike), textDecoration: 'line-through' }} aria-label="취소선">S</button>
+            <span style={{ width: 1, height: '1.25rem', background: theme.border, margin: '0 0.25rem' }}></span>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => setPanel(panel === 'color' ? '' : 'color')} style={tb(panel === 'color')} aria-label="글자색">
+              <span style={{ fontWeight: 'bold', borderBottom: '3px solid #E11D48', lineHeight: 1 }}>A</span>
+            </button>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => setPanel(panel === 'mark' ? '' : 'mark')} style={tb(panel === 'mark')} aria-label="형광펜">
+              <span style={{ fontWeight: 'bold', backgroundColor: '#FEF08A', padding: '0 0.25rem', borderRadius: 3, color: '#111' }}>가</span>
+            </button>
+            <button onPointerDown={keep} onMouseDown={keep} onClick={() => { cmd('removeFormat'); cmd('hiliteColor', 'transparent'); }} style={{ ...tb(false), fontSize: '0.75rem', fontWeight: 'bold', opacity: 0.7 }} aria-label="서식 지우기">지우기</button>
+          </div>
+          {panel && (
+            <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+              {(panel === 'color' ? TEXT_COLORS : MARKS).map(([n, c]) => (
+                <button key={n} onPointerDown={keep} onMouseDown={keep} aria-label={n}
+                  onClick={() => { if (panel === 'color') cmd('foreColor', c || theme.text); else cmd('hiliteColor', c); setPanel(''); }}
+                  style={{ width: '1.875rem', height: '1.875rem', borderRadius: '50%', cursor: 'pointer', border: `2px solid ${theme.border}`, backgroundColor: panel === 'color' ? (c || theme.text) : c, flexShrink: 0 }}></button>
+              ))}
+              <span style={{ fontSize: '0.75rem', opacity: 0.55 }}>{panel === 'color' ? '글자색' : '형광펜'} · 먼저 글자를 선택하세요</span>
+            </div>
+          )}
+          <div ref={ref} className="rich" contentEditable suppressContentEditableWarning data-ph={placeholder} data-empty={empty ? '1' : '0'}
+            onInput={emit} onBlur={emit}
+            onPaste={(e) => { e.preventDefault(); const t = (e.clipboardData || window.clipboardData).getData('text/plain'); document.execCommand('insertText', false, t); }}
+            style={{ minHeight, color: 'inherit' }}></div>
+        </div>
+      );
+    }
+
+    // 긴 메모는 5줄까지만 보이고 '더보기'
+    function MemoText({ html, onOpen, color }) {
       const [open, setOpen] = useState(false);
       const [long, setLong] = useState(false);
       const ref = useRef(null);
       React.useLayoutEffect(() => {
         const el = ref.current; if (!el || open) return;
         setLong(el.scrollHeight > el.clientHeight + 2);
-      }, [text, open]);
-      const clamp = !open ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 5, overflow: 'hidden' } : {};
+      }, [html, open]);
       return (
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p ref={ref} onClick={onOpen} style={{ fontWeight: 500, whiteSpace: 'pre-wrap', margin: 0, wordBreak: 'break-word', color, cursor: 'pointer', lineHeight: 1.5, ...clamp }}>{text}</p>
+          <div ref={ref} onClick={onOpen} className="memo-html" dangerouslySetInnerHTML={{ __html: html }}
+            style={{ fontWeight: 500, color, cursor: 'pointer', maxHeight: open ? 'none' : '7.5em', overflow: 'hidden',
+              WebkitMaskImage: !open && long ? 'linear-gradient(#000 70%, transparent)' : 'none', maskImage: !open && long ? 'linear-gradient(#000 70%, transparent)' : 'none' }}></div>
           {(long || open) && (
             <button onClick={() => setOpen(!open)} style={{ background: 'none', border: 'none', padding: '0.25rem 0 0', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 'bold', color: 'inherit', opacity: 0.55 }}>{open ? '접기' : '더보기'}</button>
           )}
@@ -461,7 +568,8 @@
       const [dayPopup, setDayPopup] = useState(null);
 
       const [memos, setMemos] = useState(() => (SAVED && SAVED.memos) || []);
-      const [memoInput, setMemoInput] = useState('');
+      const [memoInput, setMemoInput] = useState({ html: '', text: '' });
+      const [memoKey, setMemoKey] = useState(0);
       const [memoFilter, setMemoFilter] = useState('전체');
       const [memoCat, setMemoCat] = useState('기타');
       const [memoEdit, setMemoEdit] = useState(null);
@@ -584,10 +692,10 @@
       };
 
       const handleAddMemo = () => {
-        if (!memoInput.trim()) return;
-        setMemos([{ id: Date.now(), text: memoInput.trim(), date: nowLabel(), cat: memoCat }, ...memos]);
+        if (!memoInput.text.trim()) return;
+        setMemos([{ id: Date.now(), text: memoInput.text.trim(), html: cleanHTML(memoInput.html), date: nowLabel(), cat: memoCat }, ...memos]);
         haptic();
-        setMemoInput('');
+        setMemoInput({ html: '', text: '' }); setMemoKey(k => k + 1);
       };
 
       const openEdit = (item) => {
@@ -1145,7 +1253,7 @@
                 })}
               </div>
               <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '1rem', marginBottom: '1.5rem' }}>
-                <textarea value={memoInput} onChange={(e) => setMemoInput(e.target.value)} placeholder="아이디어나 메모를 자유롭게 적어보세요..." style={{ width: '100%', background: 'transparent', resize: 'none', outline: 'none', minHeight: '100px', color: theme.text, border: 'none' }}></textarea>
+                <RichEditor key={memoKey} theme={theme} initialHTML="" placeholder="아이디어나 메모를 자유롭게 적어보세요..." minHeight="100px" onChange={(html, text) => setMemoInput({ html, text })} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                     {Object.keys(MEMO_CATS).map(c => (
@@ -1168,7 +1276,7 @@
                   return (
                   <div key={memo.id} style={{ backgroundColor: memo.star ? '#FFFBEB' : theme.card, borderRadius: '1rem', padding: '1rem', borderLeft: `4px solid ${MEMO_CATS[mc]}`, boxShadow: memo.star ? '0 0 0 1px #FDE68A inset' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                      <MemoText text={memo.text} color={memo.star ? '#1f2937' : 'inherit'} onOpen={() => setMemoEdit({ id: memo.id, text: memo.text, cat: mc, star: !!memo.star })} />
+                      <MemoText html={memoHTML(memo)} color={memo.star ? '#1f2937' : 'inherit'} onOpen={() => setMemoEdit({ id: memo.id, text: memo.text, html: memoHTML(memo), cat: mc, star: !!memo.star })} />
                       <button onClick={() => { haptic(); setMemos(prev => prev.map(x => x.id === memo.id ? { ...x, star: !x.star } : x)); }} aria-label={memo.star ? '중요 해제' : '중요 표시'} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.125rem', margin: '-0.125rem -0.25rem 0 0', fontSize: '1.375rem', lineHeight: 1, color: memo.star ? '#F5B301' : 'inherit', opacity: memo.star ? 1 : 0.3, flexShrink: 0 }}>{memo.star ? '★' : '☆'}</button>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
@@ -1511,7 +1619,9 @@
               <div onClick={(e) => e.stopPropagation()} style={sheet}>
                 {closeBtn(() => setMemoEdit(null))}
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 1rem' }}>메모 수정</h2>
-                <textarea autoFocus value={memoEdit.text} onChange={(e) => setMemoEdit({ ...memoEdit, text: e.target.value })} style={{ width: '100%', minHeight: '9rem', borderRadius: '0.75rem', border: `1px solid ${theme.border}`, padding: '0.75rem', color: '#000', backgroundColor: 'white', resize: 'vertical', outline: 'none', lineHeight: 1.5 }}></textarea>
+                <div style={{ borderRadius: '0.75rem', border: `1px solid ${theme.border}`, padding: '0.5rem 0.75rem 0.75rem', color: '#000', backgroundColor: 'white', maxHeight: '50vh', overflowY: 'auto' }}>
+                  <RichEditor key={memoEdit.id} theme={{ ...theme, text: '#1f2937', bg: '#fff' }} initialHTML={memoEdit.html} placeholder="내용" minHeight="8rem" autoFocus onChange={(html, text) => setMemoEdit(prev => prev ? { ...prev, html, text } : prev)} />
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', margin: '0.75rem 0 1.25rem' }}>
                   <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                     {Object.keys(MEMO_CATS).map(c => (
@@ -1522,7 +1632,7 @@
                 </div>
                 <button onClick={() => {
                   if (!memoEdit.text.trim()) { setToast('내용을 입력해주세요'); return; }
-                  setMemos(prev => prev.map(m => m.id === memoEdit.id ? { ...m, text: memoEdit.text.trim(), cat: memoEdit.cat, star: memoEdit.star } : m));
+                  setMemos(prev => prev.map(m => m.id === memoEdit.id ? { ...m, text: memoEdit.text.trim(), html: cleanHTML(memoEdit.html), cat: memoEdit.cat, star: memoEdit.star } : m));
                   setMemoEdit(null); haptic(); setToast('메모를 수정했어요');
                 }} style={{ width: '100%', backgroundColor: theme.text, color: theme.bg, padding: '0.875rem', borderRadius: '0.75rem', fontWeight: 'bold', fontSize: '1rem', border: 'none', cursor: 'pointer' }}>저장</button>
                 <button onClick={() => { const m = memoEdit; setMemoEdit(null); setConfirmDelete({ type: 'memo', id: m.id, title: m.text.slice(0, 20) }); }} style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', background: 'none', border: 'none', color: '#EF4444', fontWeight: 'bold', fontSize: '0.875rem', cursor: 'pointer' }}>메모 삭제</button>
