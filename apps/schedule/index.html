@@ -149,8 +149,15 @@
     const parseNum = (s) => Number(String(s).replace(/[^0-9]/g, '')) || 0;
     const commaInput = (s) => { const n = parseNum(s); return n ? n.toLocaleString('ko-KR') : ''; };
     // 고정비가 그 달에 나가는지, 나간다면 며칠인지
+    // 할부: 몇 회차인지 (1부터, 기간 밖이면 0)
+    const instNo = (f, y, m) => {
+      const i = (y * 12 + m) - (Number(f.startY) * 12 + Number(f.startM));
+      return i >= 0 && i < Number(f.months) ? i + 1 : 0;
+    };
+    const instEnd = (f) => { const t = Number(f.startY) * 12 + Number(f.startM) - 1 + Number(f.months) - 1; return { y: Math.floor(t / 12), m: t % 12 + 1 }; };
     const dueDay = (f, y, m) => {
       if (f.cycle === 'yearly' && Number(f.month) !== m) return null;
+      if (f.cycle === 'installment' && !instNo(f, y, m)) return null;
       return Math.min(Number(f.day), lastDay(y, m));
     };
     const fixedOnDate = (fixed, y, m, d) => fixed.filter(f => dueDay(f, y, m) === d);
@@ -367,7 +374,7 @@
     }
 
     const SAVED = loadLocal();
-    const EMPTY_FIX = { name: '', amount: '', day: 25, cycle: 'monthly', month: 1, category: '주거', method: '', variable: false, notify: true };
+    const EMPTY_FIX = { name: '', amount: '', day: 25, cycle: 'monthly', month: 1, startY: new Date().getFullYear(), startM: new Date().getMonth() + 1, months: 6, amtMode: 'month', category: '주거', method: '', variable: false, notify: true };
 
     function App() {
       const [activeTab, setActiveTab] = useState('일정');
@@ -517,11 +524,14 @@
         const f = fixEdit;
         if (!f.name.trim()) { setToast('항목 이름을 입력해주세요'); return; }
         if (!parseNum(f.amount)) { setToast('금액을 입력해주세요'); return; }
-        const item = { ...f, name: f.name.trim(), method: (f.method || '').trim(), amount: parseNum(f.amount), day: Number(f.day), month: Number(f.month) };
+        const months = Number(f.months) || 6;
+        const amt = f.cycle === 'installment' && f.amtMode === 'total' ? Math.round(parseNum(f.amount) / months) : parseNum(f.amount);
+        const item = { ...f, name: f.name.trim(), method: (f.method || '').trim(), amount: amt, day: Number(f.day), month: Number(f.month), startY: Number(f.startY), startM: Number(f.startM), months };
+        delete item.amtMode;
         if (item.id) setFixed(prev => prev.map(x => x.id === item.id ? item : x));
         else setFixed(prev => {
           const nw = { ...item, id: Date.now() };
-          const key = (x) => (x.cycle === 'yearly' ? x.month * 100 : 0) + x.day;
+          const key = (x) => (x.cycle === 'yearly' ? x.month * 100 : x.cycle === 'installment' ? (x.startY * 12 + x.startM) * 100 : 0) + x.day;
           const at = prev.findIndex(x => (x.cycle || 'monthly') === item.cycle && key(x) > key(nw));
           if (at < 0) return [...prev, nw];
           return [...prev.slice(0, at), nw, ...prev.slice(at)];
@@ -649,7 +659,7 @@
             <div {...handle} aria-label="순서 바꾸기" style={{ alignSelf: 'stretch', width: '1.75rem', margin: '-0.75rem -0.25rem -0.75rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, touchAction: 'none', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', opacity: 0.35 }}>
               <Icon name="drag" size={20} />
             </div>
-            <div onClick={() => setFixEdit({ ...f, amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer', opacity: done ? 0.55 : 1 }}>
+            <div onClick={() => setFixEdit({ ...EMPTY_FIX, ...f, amtMode: 'month', amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer', opacity: done ? 0.55 : 1 }}>
               <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', backgroundColor: color + '1F', color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 'bold', lineHeight: 1.1 }}>
                 <span style={{ fontSize: '0.9375rem' }}>{f.cycle === 'yearly' && day == null ? f.month : (day != null ? day : f.day)}</span>
                 <span style={{ fontSize: '0.625rem' }}>{f.cycle === 'yearly' && day == null ? '월' : '일'}</span>
@@ -660,7 +670,16 @@
                   {f.variable && <span style={{ fontSize: '0.625rem', fontWeight: 'bold', padding: '0.0625rem 0.375rem', borderRadius: '9999px', border: `1px solid ${theme.border}`, opacity: 0.7, flexShrink: 0 }}>변동</span>}
                 </div>
                 <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {f.category}{f.cycle === 'yearly' ? ` · 매년 ${f.month}월 ${f.day}일` : ` · 매월 ${f.day}일`}{f.method ? ` · ${f.method}` : ''}
+                  {f.category}{f.cycle === 'yearly' ? ` · 매년 ${f.month}월 ${f.day}일` : f.cycle === 'installment' ? (() => {
+                    const n = day != null ? instNo(f, y, m) : 0;
+                    if (n) return ` · 할부 ${n}/${f.months}회${n === Number(f.months) ? ' (마지막)' : ''}`;
+                    const e = instEnd(f);
+                    const cur = instNo(f, currentYear, currentMonthNum);
+                    const ended = (currentYear * 12 + currentMonthNum) > (e.y * 12 + e.m);
+                    if (ended) return ` · 할부 ${f.months}개월 완납`;
+                    if (cur) return ` · ${cur}/${f.months}회 · 남은 ${won((Number(f.months) - cur + 1) * f.amount)}`;
+                    return ` · ${f.startY % 100}.${f.startM}~${e.y % 100}.${e.m} ${f.months}개월`;
+                  })() : ` · 매월 ${f.day}일`}{f.method ? ` · ${f.method}` : ''}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -802,7 +821,7 @@
             <div style={{ padding: '1.5rem 1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>고정비</h1>
-                <button onClick={() => setFixEdit({ ...EMPTY_FIX, month: fm })} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.375rem 1rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 'bold', display: 'flex', gap: '0.25rem', alignItems: 'center', border: 'none', cursor: 'pointer' }}>
+                <button onClick={() => setFixEdit({ ...EMPTY_FIX, month: fm, startY: fy, startM: fm })} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.375rem 1rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 'bold', display: 'flex', gap: '0.25rem', alignItems: 'center', border: 'none', cursor: 'pointer' }}>
                   <Icon name="plus" size={16} color={theme.bg} /> 추가
                 </button>
               </div>
@@ -866,19 +885,19 @@
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                     <div style={{ flex: 1, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.875rem' }}>
                       <div style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>매월 나가는 돈</div>
-                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(fixed.filter(f => f.cycle !== 'yearly').reduce((s, f) => s + (Number(f.amount) || 0), 0))}</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(fixed.filter(f => f.cycle !== 'yearly' && dueDay(f, currentYear, currentMonthNum) != null).reduce((s, f) => s + (Number(f.amount) || 0), 0))}</div>
                     </div>
                     <div style={{ flex: 1, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.875rem' }}>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>1년 합계</div>
-                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(fixed.reduce((s, f) => s + (Number(f.amount) || 0) * (f.cycle === 'yearly' ? 1 : 12), 0))}</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>앞으로 1년 합계</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(Array.from({ length: 12 }, (_, i) => { const t = currentYear * 12 + currentMonthNum - 1 + i; const yy = Math.floor(t / 12), mm = t % 12 + 1; return fixed.filter(f => dueDay(f, yy, mm) != null).reduce((s, f) => s + (Number(f.amount) || 0), 0); }).reduce((a, b) => a + b, 0))}</div>
                     </div>
                   </div>
-                  {['monthly', 'yearly'].map(cy => {
+                  {['monthly', 'installment', 'yearly'].map(cy => {
                     const list = fixed.filter(f => (f.cycle || 'monthly') === cy);
                     if (!list.length) return null;
                     return (
                       <div key={cy} style={{ marginBottom: '1.25rem' }}>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.6, margin: '0 0 0.5rem 0.25rem' }}>{cy === 'yearly' ? '매년' : '매월'} · {list.length}개</div>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.6, margin: '0 0 0.5rem 0.25rem' }}>{{ monthly: '매월', installment: '할부', yearly: '매년' }[cy]} · {list.length}개</div>
                         <SortableList ids={list.map(f => f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(list.find(f => f.id === id), null, fy, fm, false, h)} />
                       </div>
                     );
@@ -1076,18 +1095,63 @@
                     <input type="text" value={fixEdit.name} onChange={(e) => setFixEdit({ ...fixEdit, name: e.target.value })} placeholder="예: 월세, 통신비, 넷플릭스" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={label}>{fixEdit.variable ? '예상 금액' : '금액'}</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={label}>{fixEdit.cycle === 'installment' ? (fixEdit.amtMode === 'total' ? '총 금액' : '월 납입금') : fixEdit.variable ? '예상 금액' : '금액'}</label>
+                      {fixEdit.cycle === 'installment' && (
+                        <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.375rem' }}>
+                          {[['month', '월 납입금'], ['total', '총액']].map(([v, t]) => (
+                            <button key={v} onClick={() => setFixEdit({ ...fixEdit, amtMode: v })} style={{ fontSize: '0.6875rem', fontWeight: 'bold', padding: '0.1875rem 0.5rem', borderRadius: '9999px', cursor: 'pointer', border: `1px solid ${fixEdit.amtMode === v ? theme.text : theme.border}`, backgroundColor: fixEdit.amtMode === v ? theme.text : 'transparent', color: fixEdit.amtMode === v ? theme.bg : 'inherit' }}>{t}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ position: 'relative' }}>
                       <input type="text" inputMode="numeric" value={fixEdit.amount} onChange={(e) => setFixEdit({ ...fixEdit, amount: commaInput(e.target.value) })} placeholder="0" className="money" style={inputStyle} />
                       <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 'bold', color: '#6B7280' }}>원</span>
                     </div>
+                    {fixEdit.cycle === 'installment' && parseNum(fixEdit.amount) > 0 && (
+                      <div style={{ fontSize: '0.75rem', opacity: 0.65, marginTop: '0.375rem', textAlign: 'right' }}>
+                        {fixEdit.amtMode === 'total'
+                          ? `매달 ${won(Math.round(parseNum(fixEdit.amount) / fixEdit.months))} × ${fixEdit.months}개월`
+                          : `총 ${won(parseNum(fixEdit.amount) * fixEdit.months)} (${fixEdit.months}개월)`}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={label}>주기</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                      {[['monthly', '매월'], ['yearly', '매년']].map(([v, t]) => <button key={v} onClick={() => setFixEdit({ ...fixEdit, cycle: v })} style={chip(fixEdit.cycle === v, theme.text)}>{t}</button>)}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                      {[['monthly', '매월'], ['installment', '할부'], ['yearly', '매년']].map(([v, t]) => <button key={v} onClick={() => setFixEdit({ ...fixEdit, cycle: v })} style={chip(fixEdit.cycle === v, theme.text)}>{t}</button>)}
                     </div>
                   </div>
+                  {fixEdit.cycle === 'installment' && (() => {
+                    const e = instEnd(fixEdit);
+                    const ys = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i);
+                    return (
+                      <div>
+                        <div className="time-row" style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ flex: 1.1 }}>
+                            <label style={label}>첫 결제</label>
+                            <select value={fixEdit.startY} onChange={(ev) => setFixEdit({ ...fixEdit, startY: Number(ev.target.value) })} style={inputStyle}>
+                              {ys.map(y => <option key={y} value={y}>{y}년</option>)}
+                            </select>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ ...label, visibility: 'hidden' }}>월</label>
+                            <select value={fixEdit.startM} onChange={(ev) => setFixEdit({ ...fixEdit, startM: Number(ev.target.value) })} style={inputStyle}>
+                              {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{i + 1}월</option>)}
+                            </select>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={label}>개월 수</label>
+                            <select value={fixEdit.months} onChange={(ev) => setFixEdit({ ...fixEdit, months: Number(ev.target.value) })} style={inputStyle}>
+                              {Array.from({ length: 59 }, (_, i) => <option key={i} value={i + 2}>{i + 2}개월</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.65, marginTop: '0.375rem' }}>마지막 결제: {e.y}년 {e.m}월</div>
+                      </div>
+                    );
+                  })()}
                   <div className="time-row" style={{ display: 'flex', gap: '0.75rem' }}>
                     {fixEdit.cycle === 'yearly' && (
                       <div style={{ flex: 1 }}>
