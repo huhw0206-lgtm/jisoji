@@ -135,7 +135,7 @@ def build(folder, region):
     pb=lambda p:10 if p<20 else 20 if p<30 else 30 if p<40 else 40
     CUR=_asof(); CY,CM=int(CUR[:4]),int(CUR[4:])
     # W6 = 표 기준: 6개월 전 달부터 당월까지
-    W6=[mm(CUR,k) for k in range(-6,1)]; R3=[mm(CUR,k) for k in (-3,-2,-1)]; O3=[mm(CUR,k) for k in (-8,-7,-6)]; M12S=mm(CUR,-11); M13S=mm(CUR,-12)
+    W6=[mm(CUR,k) for k in range(-6,1)]; R3=[mm(CUR,k) for k in (-3,-2,-1)]; O3=[mm(CUR,k) for k in (-8,-7,-6)]; M12S=mm(CUR,-11); M13S=mm(CUR,-12); MOLD=mm(CUR,-int(os.environ.get('O_LOOKBACK','24')))   # 6개월 전 거래를 못 찾을 때 거슬러 올라가는 한도(개월)
     w6=t[t.ym.isin(W6)]
     dist={k:g.amt.sum()/g.pyeong.sum() for k,g in w6.groupby("bd")}
     allp=w6.amt.sum()/w6.pyeong.sum(); c=0.704
@@ -213,7 +213,7 @@ def build(folder, region):
                 else: _gp=gb[(gb.ar*1.3/3.3058).round()==pyx]
                 # N: 직전월까지 중 거래가 있는 가장 최근 달의 평균, O: 6개월 전 달(없으면 그 이전 가장 가까운 달)의 평균
                 _ym_n=sorted(m_ for m_ in set(_gp.ym) if m_<=mm(CUR,-1) and m_>=M13S)
-                _ym_o=sorted(m_ for m_ in set(_gp.ym) if m_<=mm(CUR,-6) and m_>=M13S)
+                _ym_o=sorted(m_ for m_ in set(_gp.ym) if m_<=mm(CUR,-6) and m_>=MOLD)
                 _a=_gp[_gp.ym==_ym_n[-1]].amt if _ym_n else _gp.iloc[0:0].amt
                 _o=_gp[_gp.ym==_ym_o[-1]].amt if _ym_o else _gp.iloc[0:0].amt
                 N_=round(_a.mean()) if len(_a) else None; O_=round(_o.mean()) if len(_o) else None

@@ -23,7 +23,7 @@ import time
 
 import collect_yeonsu as cy
 
-MONTHS = 12   # 단소지수 계산에는 최근 12개월이면 충분합니다.
+MONTHS = 24   # 실거래가율의 '6개월 전 거래'를 거래가 드문 평형에서도 찾으려면 12개월 이전 자료가 필요해 24개월로 받습니다.
 
 REGIONS = {
     # ---- 서울 ----
