@@ -52,6 +52,7 @@
         plus: <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>,
         close: <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>,
         bell: <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>,
+        drag: <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>,
         check: <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>,
         chevronLeft: <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>,
         chevronRight: <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
@@ -212,7 +213,7 @@
       const onCancel = () => { if (!drag.current) return; drag.current = null; setAnim(true); setDx(0); setTimeout(() => setAnim(false), 260); };
 
       return (
-        <div ref={wrapRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}
+        <div ref={wrapRef} data-noswipe="1" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}
           style={{ overflow: 'hidden', marginBottom: '1.5rem', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none' }}>
           <div style={{ display: 'flex', width: '300%', transform: `translateX(calc(-33.3333% + ${dx}px))`, transition: anim ? 'transform 0.26s cubic-bezier(.2,.8,.2,1)' : 'none' }}>
             {[-1, 0, 1].map(off => (
@@ -233,6 +234,134 @@
               </div>
             ))}
           </div>
+        </div>
+      );
+    }
+
+    // ---------- 화면 전체 좌우 스와이프 (이전/다음) ----------
+    function SwipePane({ onSwipe, enabled = true, children }) {
+      const [dx, setDx] = useState(0);
+      const [anim, setAnim] = useState(false);
+      const ref = useRef(null);
+      const drag = useRef(null);
+      const suppress = useRef(false);
+      const busy = useRef(false);
+      const settle = () => { setAnim(true); setDx(0); setTimeout(() => setAnim(false), 220); };
+      const down = (e) => {
+        suppress.current = false;
+        if (!enabled || busy.current) return;
+        if (e.target.closest && e.target.closest('[data-noswipe]')) return;
+        drag.current = { x: e.clientX, y: e.clientY, t: Date.now(), locked: false, active: false, id: e.pointerId };
+      };
+      const move = (e) => {
+        const d = drag.current; if (!d) return;
+        const mx = e.clientX - d.x, my = e.clientY - d.y;
+        if (!d.locked) {
+          if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+          d.locked = true; d.active = Math.abs(mx) > Math.abs(my) * 1.2;
+          if (!d.active) { drag.current = null; return; }
+          try { ref.current.setPointerCapture(d.id); } catch (err) {}
+        }
+        setDx(mx);
+      };
+      const up = (e) => {
+        const d = drag.current; drag.current = null;
+        if (!d || !d.active) return;
+        suppress.current = true;
+        const w = ref.current ? ref.current.offsetWidth : 375;
+        const mx = e.clientX - d.x;
+        const v = mx / Math.max(1, Date.now() - d.t);
+        let dir = 0;
+        if (mx < -w * 0.2 || v < -0.45) dir = 1; else if (mx > w * 0.2 || v > 0.45) dir = -1;
+        if (!dir) { settle(); return; }
+        busy.current = true; haptic();
+        setAnim(true); setDx(dir === 1 ? -w : w);
+        setTimeout(() => {
+          onSwipe(dir);
+          setAnim(false); setDx(dir === 1 ? w * 0.3 : -w * 0.3);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            setAnim(true); setDx(0);
+            setTimeout(() => { setAnim(false); busy.current = false; }, 220);
+          }));
+        }, 150);
+      };
+      const cancel = () => { if (!drag.current) return; drag.current = null; settle(); };
+      const w = ref.current ? ref.current.offsetWidth : 375;
+      return (
+        <div ref={ref} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}
+          onClickCapture={(e) => { if (suppress.current) { e.stopPropagation(); e.preventDefault(); suppress.current = false; } }}
+          style={{ overflowX: 'hidden', touchAction: 'pan-y', minHeight: 'calc(100vh - 16rem)', margin: '0 -1rem', padding: '0 1rem' }}>
+          <div style={{ transform: `translateX(${dx}px)`, opacity: 1 - Math.min(1, Math.abs(dx) / w) * 0.7, transition: anim ? 'transform 0.2s ease-out, opacity 0.2s ease-out' : 'none' }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- 꾹 눌러 순서 바꾸는 목록 ----------
+    function SortableList({ ids, onMove, render, gap = 8 }) {
+      const [drag, setDrag] = useState(null);
+      const rowRefs = useRef({});
+      const st = useRef(null);
+      const start = (id, e) => {
+        const from = ids.indexOf(id);
+        const s = { id, from, to: from, startY: e.clientY, startX: e.clientX, active: false, el: e.currentTarget, pid: e.pointerId };
+        s.timer = setTimeout(() => {
+          s.rects = ids.map(x => { const r = rowRefs.current[x].getBoundingClientRect(); return { top: r.top, h: r.height }; });
+          s.active = true;
+          try { s.el.setPointerCapture(s.pid); } catch (err) {}
+          haptic();
+          setDrag({ id, from, to: from, dy: 0, h: s.rects[from].h + gap });
+        }, 250);
+        st.current = s;
+      };
+      const move = (e) => {
+        const s = st.current; if (!s) return;
+        if (!s.active) {
+          if (Math.abs(e.clientY - s.startY) > 8 || Math.abs(e.clientX - s.startX) > 8) { clearTimeout(s.timer); st.current = null; }
+          return;
+        }
+        const dy = e.clientY - s.startY;
+        const c = s.rects[s.from].top + s.rects[s.from].h / 2 + dy;
+        let to = s.from;
+        s.rects.forEach((r, i) => {
+          const ci = r.top + r.h / 2;
+          if (i < s.from && ci > c && i < to) to = i;
+          if (i > s.from && ci < c) to = i;
+        });
+        if (to !== s.to) { s.to = to; haptic(); }
+        setDrag({ id: s.id, from: s.from, to, dy, h: s.rects[s.from].h + gap });
+      };
+      const end = () => {
+        const s = st.current; st.current = null;
+        if (!s) return;
+        clearTimeout(s.timer);
+        if (!s.active) return;
+        if (s.to !== s.from) onMove(ids, s.from, s.to);
+        setDrag(null);
+      };
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap }}>
+          {ids.map((id, i) => {
+            const isDrag = !!drag && drag.id === id;
+            let ty = 0;
+            if (isDrag) ty = drag.dy;
+            else if (drag) {
+              if (drag.from < drag.to && i > drag.from && i <= drag.to) ty = -drag.h;
+              if (drag.from > drag.to && i >= drag.to && i < drag.from) ty = drag.h;
+            }
+            const handle = {
+              'data-noswipe': '1',
+              onPointerDown: (e) => start(id, e), onPointerMove: move, onPointerUp: end, onPointerCancel: end,
+              onContextMenu: (e) => e.preventDefault()
+            };
+            return (
+              <div key={id} ref={el => { rowRefs.current[id] = el; }}
+                style={{ position: 'relative', zIndex: isDrag ? 5 : 1, transform: `translateY(${ty}px)${isDrag ? ' scale(1.02)' : ''}`, transition: isDrag || !drag ? 'none' : 'transform 0.2s ease', filter: isDrag ? 'drop-shadow(0 8px 16px rgba(0,0,0,0.15))' : 'none' }}>
+                {render(id, handle)}
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -390,7 +519,13 @@
         if (!parseNum(f.amount)) { setToast('금액을 입력해주세요'); return; }
         const item = { ...f, name: f.name.trim(), method: (f.method || '').trim(), amount: parseNum(f.amount), day: Number(f.day), month: Number(f.month) };
         if (item.id) setFixed(prev => prev.map(x => x.id === item.id ? item : x));
-        else setFixed(prev => [...prev, { ...item, id: Date.now() }]);
+        else setFixed(prev => {
+          const nw = { ...item, id: Date.now() };
+          const key = (x) => (x.cycle === 'yearly' ? x.month * 100 : 0) + x.day;
+          const at = prev.findIndex(x => (x.cycle || 'monthly') === item.cycle && key(x) > key(nw));
+          if (at < 0) return [...prev, nw];
+          return [...prev.slice(0, at), nw, ...prev.slice(at)];
+        });
         setFixEdit(null);
         haptic();
         setToast(item.id ? '고정비를 수정했어요' : '고정비를 추가했어요');
@@ -407,6 +542,28 @@
         setPaid(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [f.id]: Number(f.amount) } }));
         haptic();
       };
+      const moveFixed = (ids, from, to) => {
+        const next = ids.slice(); const [x] = next.splice(from, 1); next.splice(to, 0, x);
+        setFixed(prev => {
+          const inList = new Set(ids); const byId = {}; prev.forEach(f => { byId[f.id] = f; });
+          let k = 0;
+          return prev.map(f => inList.has(f.id) ? byId[next[k++]] : f);
+        });
+      };
+      const shiftDay = (dir) => {
+        const d = new Date(selectedDate.year, selectedDate.month - 1, selectedDate.date + dir);
+        setSelectedDate({ year: d.getFullYear(), month: d.getMonth() + 1, date: d.getDate() });
+      };
+      const shiftViewMonth = (dir) => {
+        if (dir < 0 && viewingMonth === 1) { setViewingMonth(12); setSelectedDate(p => ({ ...p, year: p.year - 1 })); }
+        else if (dir > 0 && viewingMonth === 12) { setViewingMonth(1); setSelectedDate(p => ({ ...p, year: p.year + 1 })); }
+        else setViewingMonth(viewingMonth + dir);
+      };
+      const swipeSchedule = (dir) => {
+        if (scheduleView === '주간') shiftDay(dir);
+        else if (scheduleView === '월간') shiftViewMonth(dir);
+        else setSelectedDate(p => ({ ...p, year: p.year + dir }));
+      };
       const confirmPay = () => {
         const v = parseNum(payInput.value);
         if (!v) { setToast('금액을 입력해주세요'); return; }
@@ -415,7 +572,6 @@
         haptic();
       };
       const shiftFixMonth = (dir) => {
-        haptic();
         setFixMonth(p => { let y = p.year, m = p.month + dir; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } return { year: y, month: m }; });
       };
 
@@ -468,7 +624,7 @@
       const fy = fixMonth.year, fm = fixMonth.month;
       const fKey = ymKey(fy, fm);
       const pm = paid[fKey] || {};
-      const monthItems = fixed.map(f => ({ f, day: dueDay(f, fy, fm) })).filter(x => x.day != null).sort((a, b) => a.day - b.day || a.f.name.localeCompare(b.f.name));
+      const monthItems = fixed.map(f => ({ f, day: dueDay(f, fy, fm) })).filter(x => x.day != null);
       const total = monthItems.reduce((s, x) => s + amountFor(x.f, pm), 0);
       const paidSum = monthItems.filter(x => pm[x.f.id] != null).reduce((s, x) => s + pm[x.f.id], 0);
       const byCat = {};
@@ -483,14 +639,17 @@
         return { t: `D-${diff}`, c: '#9CA3AF' };
       };
 
-      const FixedRow = ({ f, day, y, m, showCheck = true }) => {
+      const renderFixedRow = (f, day, y, m, showCheck, handle) => {
         const pmx = paid[ymKey(y, m)] || {};
         const done = pmx[f.id] != null;
         const color = FIX_CATS[f.category] || '#6B7280';
         const b = day != null ? dBadge(day) : null;
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.75rem 0.875rem', opacity: done ? 0.55 : 1 }}>
-            <div onClick={() => setFixEdit({ ...f, amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.75rem 0.875rem 0.75rem 0.25rem' }}>
+            <div {...handle} aria-label="순서 바꾸기" style={{ alignSelf: 'stretch', width: '1.75rem', margin: '-0.75rem -0.25rem -0.75rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, touchAction: 'none', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', opacity: 0.35 }}>
+              <Icon name="drag" size={20} />
+            </div>
+            <div onClick={() => setFixEdit({ ...f, amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer', opacity: done ? 0.55 : 1 }}>
               <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', backgroundColor: color + '1F', color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 'bold', lineHeight: 1.1 }}>
                 <span style={{ fontSize: '0.9375rem' }}>{f.cycle === 'yearly' && day == null ? f.month : (day != null ? day : f.day)}</span>
                 <span style={{ fontSize: '0.625rem' }}>{f.cycle === 'yearly' && day == null ? '월' : '일'}</span>
@@ -542,6 +701,7 @@
                 ))}
               </div>
 
+              <SwipePane onSwipe={swipeSchedule}>
               {scheduleView === '주간' && (
                 <>
                   <WeekStrip selectedDate={selectedDate} onSelect={setSelectedDate} theme={theme} fixed={fixed} />
@@ -593,9 +753,9 @@
               {scheduleView === '월간' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 0.5rem' }}>
-                    <button onClick={() => { haptic(); if (viewingMonth === 1) { setViewingMonth(12); setSelectedDate(p => ({ ...p, year: p.year - 1 })); } else setViewingMonth(viewingMonth - 1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
+                    <button onClick={() => { haptic(); shiftViewMonth(-1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
                     <h2 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: 0 }}>{selectedDate.year}년 {viewingMonth}월</h2>
-                    <button onClick={() => { haptic(); if (viewingMonth === 12) { setViewingMonth(1); setSelectedDate(p => ({ ...p, year: p.year + 1 })); } else setViewingMonth(viewingMonth + 1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
+                    <button onClick={() => { haptic(); shiftViewMonth(1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: 'bold', fontSize: '0.8125rem', opacity: 0.6, marginBottom: '0.5rem' }}>
                     {SHORT_DAYS.map(d => <div key={d}>{d}</div>)}
@@ -634,6 +794,7 @@
                   </div>
                 </div>
               )}
+              </SwipePane>
             </div>
           )}
 
@@ -652,12 +813,13 @@
                 ))}
               </div>
 
+              <SwipePane onSwipe={shiftFixMonth} enabled={fixView === '이번 달'}>
               {fixView === '이번 달' && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <button onClick={() => shiftFixMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
+                    <button onClick={() => { haptic(); shiftFixMonth(-1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
                     <div style={{ fontWeight: 'bold', fontSize: '1.0625rem' }}>{fy}년 {fm}월</div>
-                    <button onClick={() => shiftFixMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
+                    <button onClick={() => { haptic(); shiftFixMonth(1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
                   </div>
 
                   <div style={{ backgroundColor: theme.text, color: theme.bg, borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '1rem' }}>
@@ -690,11 +852,12 @@
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {monthItems.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>{fixed.length === 0 ? "등록된 고정비가 없어요. '추가'를 눌러 월세, 통신비 등을 넣어보세요." : '이번 달에 나가는 고정비가 없어요.'}</div>
-                    ) : monthItems.map(({ f, day }) => <FixedRow key={f.id} f={f} day={day} y={fy} m={fm} />)}
-                  </div>
+                  {monthItems.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>{fixed.length === 0 ? "등록된 고정비가 없어요. '추가'를 눌러 월세, 통신비 등을 넣어보세요." : '이번 달에 나가는 고정비가 없어요.'}</div>
+                  ) : (() => {
+                    const byId = {}; monthItems.forEach(x => { byId[x.f.id] = x; });
+                    return <SortableList ids={monthItems.map(x => x.f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(byId[id].f, byId[id].day, fy, fm, true, h)} />;
+                  })()}
                 </>
               )}
 
@@ -711,20 +874,19 @@
                     </div>
                   </div>
                   {['monthly', 'yearly'].map(cy => {
-                    const list = fixed.filter(f => (f.cycle || 'monthly') === cy).sort((a, b) => cy === 'yearly' ? (a.month - b.month || a.day - b.day) : a.day - b.day);
+                    const list = fixed.filter(f => (f.cycle || 'monthly') === cy);
                     if (!list.length) return null;
                     return (
                       <div key={cy} style={{ marginBottom: '1.25rem' }}>
                         <div style={{ fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.6, margin: '0 0 0.5rem 0.25rem' }}>{cy === 'yearly' ? '매년' : '매월'} · {list.length}개</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {list.map(f => <FixedRow key={f.id} f={f} day={null} y={fy} m={fm} showCheck={false} />)}
-                        </div>
+                        <SortableList ids={list.map(f => f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(list.find(f => f.id === id), null, fy, fm, false, h)} />
                       </div>
                     );
                   })}
                   {fixed.length === 0 && <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>등록된 고정비가 없어요.</div>}
                 </>
               )}
+              </SwipePane>
             </div>
           )}
 
