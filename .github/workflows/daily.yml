@@ -14,6 +14,7 @@ on:
       - "data/seed.json"
       - "templates/**"
       - "scripts/**"
+      - "apps/**"
 
 permissions:
   contents: write
@@ -54,6 +55,10 @@ jobs:
           git push || true
       - name: 사이트 만들기
         run: python scripts/build_site.py
+      - name: 내 일정 앱 넣기
+        run: |
+          mkdir -p docs/schedule
+          cp -r apps/schedule/. docs/schedule/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

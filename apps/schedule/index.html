@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="내 일정">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#F0EEE7">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>내 일정</title>
+  <style>
+    html, body { margin: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+    body { padding-top: env(safe-area-inset-top); }
+    * { box-sizing: border-box; }
+    button { font-family: inherit; }
+    .app-nav { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important; }
+    input[type="date"], input[type="time"], input[type="text"], select {
+      -webkit-appearance: none; appearance: none;
+      display: block; width: 100% !important; min-width: 0 !important; max-width: 100%;
+      height: 2.75rem; line-height: 1.2;
+      padding: 0 0.875rem !important;
+      font-size: 16px; font-family: inherit;
+    }
+    input[type="date"], input[type="time"] { height: auto !important; padding: 12px 0.875rem !important; line-height: 20px; }
+    input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-date-and-time-value {
+      text-align: left; margin: 0; padding: 0; line-height: 20px; min-height: 20px;
+    }
+    textarea { font-family: inherit; font-size: 16px; }
+    .time-row > div { min-width: 0; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const Icon = ({ name, color = "currentColor", size = 24 }) => {
+      const icons = {
+        calendar: <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/>,
+        memo: <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>,
+        won: <path d="M3 5h2.2l1.6 6.4L8.6 5h2.2l1.8 6.4L14.2 5h2.2L18 11.4 19.8 5H22l-2.4 9h-2.2L15.6 7.6 13.8 14h-2.2L9.8 7.6 8 14H5.8L3 5zm0 8h18v1.8H3V13zm0 3h18v1.8H3V16z"/>,
+        settings: <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>,
+        plus: <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>,
+        close: <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>,
+        bell: <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>,
+        check: <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>,
+        chevronLeft: <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>,
+        chevronRight: <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+      };
+      return <svg fill={color} width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">{icons[name]}</svg>;
+    };
+
+    const THEMES = [
+      { name: '기본 베이지', bg: '#F0EEE7', card: '#F6F4EE', text: '#262730', primary: '#5A7B5E', border: '#E4EBE4' },
+      { name: '피치 퍼즈', bg: '#FFBE98', card: '#FFD7C4', text: '#593222', primary: '#F27457', border: '#FFC8B0' },
+      { name: '비바 마젠타', bg: '#F2E8E9', card: '#FFFFFF', text: '#1E1E1E', primary: '#BB2649', border: '#E5D0D3' },
+      { name: '클래식 블루', bg: '#EBF0F6', card: '#FFFFFF', text: '#0F4C81', primary: '#0F4C81', border: '#D0DCE8' },
+      { name: '세레니티', bg: '#F0F4F8', card: '#FFFFFF', text: '#4B5563', primary: '#92A8D1', border: '#E2E8F0' },
+      { name: '로즈 쿼츠', bg: '#FDF7F7', card: '#FFFFFF', text: '#4B5563', primary: '#E8A9A8', border: '#FCECEC' },
+      { name: '일루미네이팅', bg: '#FEFBEE', card: '#FFFFFF', text: '#4B5563', primary: '#D9BE1E', border: '#FCEB8A' },
+      { name: '얼티밋 그레이', bg: '#F3F4F6', card: '#FFFFFF', text: '#1F2937', primary: '#939597', border: '#E5E7EB' },
+      { name: '그리너리', bg: '#F4F9F4', card: '#FFFFFF', text: '#374151', primary: '#88B04B', border: '#E2EFE2' },
+      { name: '울트라 바이올렛', bg: '#F5F3F9', card: '#FFFFFF', text: '#374151', primary: '#5F4B8B', border: '#E6E1F0' }
+    ];
+
+    const CATEGORIES = {
+      '업무': { color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
+      '부동산': { color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE' },
+      '사업': { color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
+      '일상': { color: '#F97316', bg: '#FFF7ED', border: '#FED7AA' }
+    };
+
+    const FIX_CATS = {
+      '주거': '#8B5CF6', '통신': '#3B82F6', '보험': '#10B981', '대출': '#EF4444',
+      '구독': '#F59E0B', '사업': '#0EA5E9', '기타': '#6B7280'
+    };
+
+    // ---------- 저장 (이 휴대폰의 브라우저 안) ----------
+    const LS_KEY = 'my-schedule-app-v1';
+    const loadLocal = () => { try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } };
+    const saveLocal = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) {} };
+    // 사파리가 오래 안 쓴 사이트 데이터를 지우지 않도록 요청
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+    // ---------- 소리 ----------
+    const SOUNDS = ['기본음', '새소리', '부드러운 알람', '진동만'];
+    let audioCtx = null;
+    const getCtx = () => {
+      try {
+        if (!audioCtx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; audioCtx = new C(); }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+      } catch (e) { return null; }
+    };
+    document.addEventListener('pointerdown', () => { getCtx(); }, { passive: true });
+    const tone = (ctx, { freq, start, dur, type = 'sine', vol = 0.25, toFreq }) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, start);
+      if (toFreq) o.frequency.exponentialRampToValueAtTime(toFreq, start + dur);
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      o.connect(g); g.connect(ctx.destination); o.start(start); o.stop(start + dur + 0.05);
+    };
+    const vibrate = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+    const playSound = (name) => {
+      if (name === '진동만') { vibrate([300, 150, 300, 150, 300]); return; }
+      const ctx = getCtx(); if (!ctx) return;
+      const t = ctx.currentTime + 0.05;
+      if (name === '새소리') for (let i = 0; i < 4; i++) tone(ctx, { freq: 2000, toFreq: 3400, start: t + i * 0.22, dur: 0.12, vol: 0.2 });
+      else if (name === '부드러운 알람') [523.25, 659.25, 783.99].forEach((f, i) => tone(ctx, { freq: f, start: t + i * 0.4, dur: 1.2, vol: 0.18 }));
+      else for (let i = 0; i < 3; i++) tone(ctx, { freq: 880, start: t + i * 0.35, dur: 0.2, type: 'square', vol: 0.12 });
+    };
+
+    // ---------- 햅틱 ----------
+    // 안드로이드는 vibrate, 아이폰(iOS 18+)은 숨겨진 스위치를 눌러 시스템 햅틱을 냄
+    let hapticLabel = null;
+    const haptic = () => {
+      try { if (navigator.vibrate && navigator.vibrate(12)) return; } catch (e) {}
+      try {
+        if (!hapticLabel) {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none;';
+          const input = document.createElement('input');
+          input.type = 'checkbox'; input.setAttribute('switch', ''); input.id = 'haptic-switch';
+          hapticLabel = document.createElement('label'); hapticLabel.htmlFor = 'haptic-switch';
+          wrap.appendChild(input); wrap.appendChild(hapticLabel); document.body.appendChild(wrap);
+        }
+        hapticLabel.click();
+      } catch (e) {}
+    };
+
+    // ---------- 날짜·금액 도우미 ----------
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const ymd = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
+    const ymKey = (y, m) => `${y}-${pad2(m)}`;
+    const lastDay = (y, m) => new Date(y, m, 0).getDate();
+    const won = (n) => (Number(n) || 0).toLocaleString('ko-KR') + '원';
+    const parseNum = (s) => Number(String(s).replace(/[^0-9]/g, '')) || 0;
+    const commaInput = (s) => { const n = parseNum(s); return n ? n.toLocaleString('ko-KR') : ''; };
+    // 고정비가 그 달에 나가는지, 나간다면 며칠인지
+    const dueDay = (f, y, m) => {
+      if (f.cycle === 'yearly' && Number(f.month) !== m) return null;
+      return Math.min(Number(f.day), lastDay(y, m));
+    };
+    const fixedOnDate = (fixed, y, m, d) => fixed.filter(f => dueDay(f, y, m) === d);
+    const amountFor = (f, paidMonth) => (paidMonth && paidMonth[f.id] != null ? paidMonth[f.id] : Number(f.amount) || 0);
+
+    // ---------- 좌우로 넘기는 주간 날짜 줄 ----------
+    const SHORT_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+    function WeekStrip({ selectedDate, onSelect, theme, fixed }) {
+      const [dx, setDx] = useState(0);
+      const [anim, setAnim] = useState(false);
+      const wrapRef = useRef(null);
+      const drag = useRef(null);
+      const suppressClick = useRef(false);
+
+      const base = new Date(selectedDate.year, selectedDate.month - 1, selectedDate.date);
+      const now = new Date();
+      const buildWeek = (offset) => {
+        const d = new Date(base); d.setDate(d.getDate() - d.getDay() + offset * 7);
+        return Array.from({ length: 7 }, (_, i) => {
+          const x = new Date(d); x.setDate(d.getDate() + i);
+          return {
+            year: x.getFullYear(), month: x.getMonth() + 1, date: x.getDate(), dayStr: SHORT_DAYS[i],
+            isSelected: x.toDateString() === base.toDateString(),
+            isToday: x.toDateString() === now.toDateString()
+          };
+        });
+      };
+      const shiftWeek = (dir) => {
+        const d = new Date(base); d.setDate(d.getDate() + dir * 7);
+        onSelect({ year: d.getFullYear(), month: d.getMonth() + 1, date: d.getDate() });
+      };
+      const onDown = (e) => {
+        if (anim) return;
+        drag.current = { x: e.clientX, y: e.clientY, t: Date.now(), locked: false, active: false, id: e.pointerId };
+        suppressClick.current = false;
+      };
+      const onMove = (e) => {
+        const d = drag.current; if (!d) return;
+        const mx = e.clientX - d.x, my = e.clientY - d.y;
+        if (!d.locked) {
+          if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+          d.locked = true; d.active = Math.abs(mx) > Math.abs(my);
+          if (d.active) { try { wrapRef.current.setPointerCapture(d.id); } catch (err) {} }
+        }
+        if (!d.active) return;
+        suppressClick.current = true; setDx(mx);
+      };
+      const onUp = (e) => {
+        const d = drag.current; drag.current = null;
+        if (!d || !d.active) return;
+        const w = wrapRef.current ? wrapRef.current.offsetWidth : 300;
+        const mx = e.clientX - d.x;
+        const v = mx / Math.max(1, Date.now() - d.t);
+        let dir = 0;
+        if (mx < -w * 0.22 || v < -0.4) dir = 1; else if (mx > w * 0.22 || v > 0.4) dir = -1;
+        setAnim(true);
+        if (dir) { haptic(); setDx(dir === 1 ? -w : w); setTimeout(() => { shiftWeek(dir); setAnim(false); setDx(0); }, 260); }
+        else { setDx(0); setTimeout(() => setAnim(false), 260); }
+      };
+      const onCancel = () => { if (!drag.current) return; drag.current = null; setAnim(true); setDx(0); setTimeout(() => setAnim(false), 260); };
+
+      return (
+        <div ref={wrapRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}
+          style={{ overflow: 'hidden', marginBottom: '1.5rem', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none' }}>
+          <div style={{ display: 'flex', width: '300%', transform: `translateX(calc(-33.3333% + ${dx}px))`, transition: anim ? 'transform 0.26s cubic-bezier(.2,.8,.2,1)' : 'none' }}>
+            {[-1, 0, 1].map(off => (
+              <div key={off} style={{ width: '33.3333%', display: 'flex', justifyContent: 'space-between', padding: '0 0.5rem', textAlign: 'center' }}>
+                {buildWeek(off).map((day, i) => {
+                  const pay = fixedOnDate(fixed, day.year, day.month, day.date).length > 0;
+                  return (
+                    <div key={i} onClick={() => { if (suppressClick.current) return; haptic(); onSelect({ year: day.year, month: day.month, date: day.date }); }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center', cursor: 'pointer', width: '2.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{day.dayStr}</span>
+                      <span style={{ width: '2rem', height: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '0.75rem', fontWeight: 'bold', backgroundColor: day.isSelected ? theme.text : 'transparent', color: day.isSelected ? theme.bg : (day.isToday ? theme.primary : 'inherit') }}>
+                        {day.date}
+                      </span>
+                      <span style={{ fontSize: '0.625rem', fontWeight: 'bold', color: '#D97706', height: '0.75rem', lineHeight: '0.75rem' }}>{pay ? '₩' : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    const SAVED = loadLocal();
+    const EMPTY_FIX = { name: '', amount: '', day: 25, cycle: 'monthly', month: 1, category: '주거', method: '', variable: false, notify: true };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('일정');
+      const [scheduleView, setScheduleView] = useState('주간');
+      const [theme, setTheme] = useState(() => (SAVED && THEMES.find(t => t.name === SAVED.themeName)) || THEMES[0]);
+      const [toast, setToast] = useState('');
+      const [confirmDelete, setConfirmDelete] = useState(null);
+
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonthNum = today.getMonth() + 1;
+      const currentDateNum = today.getDate();
+
+      const [selectedDate, setSelectedDate] = useState({ year: currentYear, month: currentMonthNum, date: currentDateNum });
+      const [viewingMonth, setViewingMonth] = useState(currentMonthNum);
+      const [dayPopup, setDayPopup] = useState(null);
+
+      const [memos, setMemos] = useState(() => (SAVED && SAVED.memos) || []);
+      const [memoInput, setMemoInput] = useState('');
+      const [showAddModal, setShowAddModal] = useState(false);
+      const [newSchedule, setNewSchedule] = useState({ title: '', date: ymd(currentYear, currentMonthNum, currentDateNum), startTime: '09:00', endTime: '10:00', category: '업무' });
+      const [schedules, setSchedules] = useState(() => (SAVED && SAVED.schedules) || []);
+      const [notifications, setNotifications] = useState(() => (SAVED && SAVED.notifications) || {});
+      const [defaultSound, setDefaultSound] = useState(() => (SAVED && SAVED.defaultSound) || '기본음');
+      const [editing, setEditing] = useState(null);
+      const [ringing, setRinging] = useState(null);
+      const firedRef = useRef({});
+
+      // 고정비
+      const [fixed, setFixed] = useState(() => (SAVED && SAVED.fixed) || []);
+      const [paid, setPaid] = useState(() => (SAVED && SAVED.paid) || {});
+      const [fixMonth, setFixMonth] = useState({ year: currentYear, month: currentMonthNum });
+      const [fixView, setFixView] = useState('이번 달');
+      const [fixEdit, setFixEdit] = useState(null);     // 추가·수정 창
+      const [payInput, setPayInput] = useState(null);   // 변동 금액 입력 창
+
+      // 백업
+      const [backupText, setBackupText] = useState(null);
+      const fileRef = useRef(null);
+
+      useEffect(() => {
+        saveLocal({ schedules, memos, notifications, themeName: theme.name, defaultSound, fixed, paid });
+      }, [schedules, memos, notifications, theme, defaultSound, fixed, paid]);
+
+      useEffect(() => {
+        try { document.querySelector('meta[name="theme-color"]').setAttribute('content', theme.bg); } catch (e) {}
+      }, [theme]);
+
+      // 알람: 앱이 열려 있는 동안 일정 시작 시간, 고정비 결제일 오전 9시에 울림
+      useEffect(() => {
+        const check = () => {
+          const d = new Date();
+          const ds = ymd(d.getFullYear(), d.getMonth() + 1, d.getDate());
+          const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+          schedules.forEach(s => {
+            const n = notifications[s.id];
+            if (n && n.enabled && s.date === ds && s.startTime === hm) {
+              const key = `${s.id}|${ds}|${hm}`;
+              if (!firedRef.current[key]) {
+                firedRef.current[key] = true;
+                setRinging({ time: s.startTime, title: s.title, sub: `${s.startTime} ~ ${s.endTime} · ${s.category}`, color: CATEGORIES[s.category].color, sound: n.sound || defaultSound });
+              }
+            }
+          });
+          if (hm === '09:00') {
+            const pm = paid[ymKey(d.getFullYear(), d.getMonth() + 1)] || {};
+            fixedOnDate(fixed, d.getFullYear(), d.getMonth() + 1, d.getDate()).forEach(f => {
+              const key = `fix|${f.id}|${ds}`;
+              if (f.notify && pm[f.id] == null && !firedRef.current[key]) {
+                firedRef.current[key] = true;
+                setRinging({ time: '결제일', title: f.name, sub: `${won(f.amount)}${f.method ? ' · ' + f.method : ''}`, color: FIX_CATS[f.category] || '#6B7280', sound: defaultSound });
+              }
+            });
+          }
+        };
+        check();
+        const h = setInterval(check, 10000);
+        return () => clearInterval(h);
+      }, [schedules, notifications, defaultSound, fixed, paid]);
+
+      useEffect(() => {
+        if (!ringing) return;
+        playSound(ringing.sound);
+        if (ringing.sound !== '진동만') vibrate([400, 200, 400]);
+        const h = setInterval(() => playSound(ringing.sound), 3000);
+        const stop = setTimeout(() => clearInterval(h), 60000);
+        return () => { clearInterval(h); clearTimeout(stop); };
+      }, [ringing]);
+
+      useEffect(() => { if (!toast) return; const h = setTimeout(() => setToast(''), 2000); return () => clearTimeout(h); }, [toast]);
+
+      const deleteSchedule = (id) => {
+        setSchedules(prev => prev.filter(s => s.id !== id));
+        setNotifications(prev => { const n = { ...prev }; delete n[id]; return n; });
+        setDayPopup(prev => prev ? { ...prev, schedules: prev.schedules.filter(s => s.id !== id) } : prev);
+        setToast('일정을 삭제했어요');
+      };
+      const deleteMemo = (id) => { setMemos(prev => prev.filter(m => m.id !== id)); setToast('메모를 삭제했어요'); };
+      const deleteFixed = (id) => {
+        setFixed(prev => prev.filter(f => f.id !== id));
+        setPaid(prev => { const n = {}; Object.keys(prev).forEach(k => { const m = { ...prev[k] }; delete m[id]; n[k] = m; }); return n; });
+        setToast('고정비를 삭제했어요');
+      };
+
+      const nowLabel = () => { const d = new Date(); return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+
+      const getMonthDays = (year, month) => {
+        const firstDay = new Date(year, month - 1, 1).getDay();
+        const days = [];
+        for (let i = 0; i < firstDay; i++) days.push(null);
+        for (let i = 1; i <= lastDay(year, month); i++) days.push(i);
+        return days;
+      };
+
+      const handleAddSchedule = () => {
+        if (!newSchedule.title.trim()) { setToast('일정 제목을 입력해주세요'); return; }
+        if (newSchedule.endTime < newSchedule.startTime) { setToast('종료 시간이 시작 시간보다 빨라요'); return; }
+        const id = Date.now();
+        setSchedules([...schedules, { id, ...newSchedule, title: newSchedule.title.trim() }].sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)));
+        setNotifications({ ...notifications, [id]: { enabled: false, sound: defaultSound } });
+        setShowAddModal(false);
+        setToast('일정을 추가했어요');
+        setNewSchedule({ title: '', date: ymd(selectedDate.year, selectedDate.month, selectedDate.date), startTime: '09:00', endTime: '10:00', category: '업무' });
+      };
+
+      const handleAddMemo = () => {
+        if (!memoInput.trim()) return;
+        setMemos([{ id: Date.now(), text: memoInput.trim(), date: nowLabel() }, ...memos]);
+        setMemoInput('');
+      };
+
+      const openEdit = (item) => {
+        const n = notifications[item.id] || {};
+        setEditing({ id: item.id, title: item.title, category: item.category, date: item.date, startTime: item.startTime, endTime: item.endTime, enabled: !!n.enabled, sound: n.sound || defaultSound });
+      };
+      const saveEdit = () => {
+        if (editing.endTime < editing.startTime) { setToast('종료 시간이 시작 시간보다 빨라요'); return; }
+        setSchedules(prev => prev.map(s => s.id === editing.id ? { ...s, startTime: editing.startTime, endTime: editing.endTime } : s).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)));
+        setNotifications(prev => ({ ...prev, [editing.id]: { enabled: editing.enabled, sound: editing.sound } }));
+        setDayPopup(prev => prev ? { ...prev, schedules: prev.schedules.map(s => s.id === editing.id ? { ...s, startTime: editing.startTime, endTime: editing.endTime } : s) } : prev);
+        setEditing(null);
+        setToast(editing.enabled ? `${editing.startTime} 알람이 설정됐어요` : '일정을 수정했어요');
+      };
+
+      // ---- 고정비 동작 ----
+      const saveFixed = () => {
+        const f = fixEdit;
+        if (!f.name.trim()) { setToast('항목 이름을 입력해주세요'); return; }
+        if (!parseNum(f.amount)) { setToast('금액을 입력해주세요'); return; }
+        const item = { ...f, name: f.name.trim(), method: (f.method || '').trim(), amount: parseNum(f.amount), day: Number(f.day), month: Number(f.month) };
+        if (item.id) setFixed(prev => prev.map(x => x.id === item.id ? item : x));
+        else setFixed(prev => [...prev, { ...item, id: Date.now() }]);
+        setFixEdit(null);
+        haptic();
+        setToast(item.id ? '고정비를 수정했어요' : '고정비를 추가했어요');
+      };
+      const togglePaid = (f, y, m) => {
+        const key = ymKey(y, m);
+        const done = paid[key] && paid[key][f.id] != null;
+        if (done) {
+          setPaid(prev => { const pm = { ...(prev[key] || {}) }; delete pm[f.id]; return { ...prev, [key]: pm }; });
+          haptic();
+          return;
+        }
+        if (f.variable) { setPayInput({ f, key, value: commaInput(f.amount) }); return; }
+        setPaid(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [f.id]: Number(f.amount) } }));
+        haptic();
+      };
+      const confirmPay = () => {
+        const v = parseNum(payInput.value);
+        if (!v) { setToast('금액을 입력해주세요'); return; }
+        setPaid(prev => ({ ...prev, [payInput.key]: { ...(prev[payInput.key] || {}), [payInput.f.id]: v } }));
+        setPayInput(null);
+        haptic();
+      };
+      const shiftFixMonth = (dir) => {
+        haptic();
+        setFixMonth(p => { let y = p.year, m = p.month + dir; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } return { year: y, month: m }; });
+      };
+
+      // ---- 백업 ----
+      const backupJSON = () => JSON.stringify({ app: '내 일정', version: 2, savedAt: new Date().toISOString(), schedules, memos, notifications, themeName: theme.name, defaultSound, fixed, paid });
+      const applyBackup = (text) => {
+        try {
+          const d = JSON.parse(text);
+          if (!d || (!d.schedules && !d.fixed && !d.memos)) throw new Error();
+          setSchedules(d.schedules || []); setMemos(d.memos || []); setNotifications(d.notifications || {});
+          setFixed(d.fixed || []); setPaid(d.paid || {});
+          if (d.defaultSound) setDefaultSound(d.defaultSound);
+          const t = THEMES.find(x => x.name === d.themeName); if (t) setTheme(t);
+          setBackupText(null);
+          setToast('백업을 불러왔어요');
+        } catch (e) { setToast('백업 내용을 읽을 수 없어요'); }
+      };
+      const downloadBackup = () => {
+        const d = new Date();
+        const name = `내일정-백업-${ymd(d.getFullYear(), d.getMonth() + 1, d.getDate())}.json`;
+        const file = new File([backupJSON()], name, { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: name }).catch(() => {});
+          return;
+        }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(file); a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      };
+      const copyBackup = async () => {
+        try { await navigator.clipboard.writeText(backupJSON()); setToast('백업 내용을 복사했어요'); }
+        catch (e) { setToast('복사하지 못했어요'); }
+      };
+
+      const formattedSelectedDateStr = ymd(selectedDate.year, selectedDate.month, selectedDate.date);
+      const filteredSchedules = schedules.filter(s => s.date === formattedSelectedDateStr);
+      const selectedFixed = fixedOnDate(fixed, selectedDate.year, selectedDate.month, selectedDate.date);
+      const isTodaySelected = selectedDate.year === currentYear && selectedDate.month === currentMonthNum && selectedDate.date === currentDateNum;
+
+      const inputStyle = { width: '100%', backgroundColor: 'white', borderRadius: '0.75rem', border: `1px solid ${theme.border}`, outline: 'none', fontWeight: 'bold', color: '#000' };
+      const label = { display: 'block', fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.7, marginBottom: '0.375rem' };
+      const overlay = (z) => ({ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: z });
+      const sheet = { backgroundColor: theme.card, color: theme.text, width: '100%', maxWidth: '24rem', borderRadius: '1.5rem', padding: '1.5rem', position: 'relative', maxHeight: '90vh', overflowY: 'auto' };
+      const closeBtn = (fn) => (
+        <button onClick={fn} style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'none', border: 'none', opacity: 0.5, cursor: 'pointer', color: 'inherit' }}><Icon name="close" size={24} /></button>
+      );
+      const chip = (on, color) => ({ padding: '0.5rem 0', fontSize: '0.8125rem', fontWeight: 'bold', borderRadius: '0.75rem', cursor: 'pointer', backgroundColor: on ? color : 'transparent', color: on ? 'white' : 'inherit', border: `1px solid ${on ? color : theme.border}` });
+
+      // ---- 고정비 화면 계산 ----
+      const fy = fixMonth.year, fm = fixMonth.month;
+      const fKey = ymKey(fy, fm);
+      const pm = paid[fKey] || {};
+      const monthItems = fixed.map(f => ({ f, day: dueDay(f, fy, fm) })).filter(x => x.day != null).sort((a, b) => a.day - b.day || a.f.name.localeCompare(b.f.name));
+      const total = monthItems.reduce((s, x) => s + amountFor(x.f, pm), 0);
+      const paidSum = monthItems.filter(x => pm[x.f.id] != null).reduce((s, x) => s + pm[x.f.id], 0);
+      const byCat = {};
+      monthItems.forEach(x => { byCat[x.f.category] = (byCat[x.f.category] || 0) + amountFor(x.f, pm); });
+      const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      const todayStart = new Date(currentYear, currentMonthNum - 1, currentDateNum);
+      const dBadge = (day) => {
+        const diff = Math.round((new Date(fy, fm - 1, day) - todayStart) / 86400000);
+        if (diff === 0) return { t: '오늘', c: '#EF4444' };
+        if (diff < 0) return { t: '지남', c: '#9CA3AF' };
+        if (diff <= 3) return { t: `D-${diff}`, c: '#F59E0B' };
+        return { t: `D-${diff}`, c: '#9CA3AF' };
+      };
+
+      const FixedRow = ({ f, day, y, m, showCheck = true }) => {
+        const pmx = paid[ymKey(y, m)] || {};
+        const done = pmx[f.id] != null;
+        const color = FIX_CATS[f.category] || '#6B7280';
+        const b = day != null ? dBadge(day) : null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.75rem 0.875rem', opacity: done ? 0.55 : 1 }}>
+            <div onClick={() => setFixEdit({ ...f, amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer' }}>
+              <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', backgroundColor: color + '1F', color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 'bold', lineHeight: 1.1 }}>
+                <span style={{ fontSize: '0.9375rem' }}>{f.cycle === 'yearly' && day == null ? f.month : (day != null ? day : f.day)}</span>
+                <span style={{ fontSize: '0.625rem' }}>{f.cycle === 'yearly' && day == null ? '월' : '일'}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <span style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: done ? 'line-through' : 'none' }}>{f.name}</span>
+                  {f.variable && <span style={{ fontSize: '0.625rem', fontWeight: 'bold', padding: '0.0625rem 0.375rem', borderRadius: '9999px', border: `1px solid ${theme.border}`, opacity: 0.7, flexShrink: 0 }}>변동</span>}
+                </div>
+                <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {f.category}{f.cycle === 'yearly' ? ` · 매년 ${f.month}월 ${f.day}일` : ` · 매월 ${f.day}일`}{f.method ? ` · ${f.method}` : ''}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontWeight: 'bold', fontSize: '0.9375rem' }}>{won(done ? pmx[f.id] : f.amount)}</div>
+                {showCheck && b && !done && <div style={{ fontSize: '0.6875rem', fontWeight: 'bold', color: b.c, marginTop: '0.125rem' }}>{b.t}</div>}
+                {showCheck && done && <div style={{ fontSize: '0.6875rem', fontWeight: 'bold', color: '#22C55E', marginTop: '0.125rem' }}>완료</div>}
+              </div>
+            </div>
+            {showCheck && (
+              <button onClick={() => togglePaid(f, y, m)} aria-label="결제 완료" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '50%', border: `2px solid ${done ? '#22C55E' : theme.border}`, backgroundColor: done ? '#22C55E' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
+                {done && <Icon name="check" size={16} color="white" />}
+              </button>
+            )}
+          </div>
+        );
+      };
+
+      return (
+        <div style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100vh', paddingBottom: '7rem', position: 'relative' }}>
+
+          {activeTab === '일정' && (
+            <div style={{ padding: '1.5rem 1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>{selectedDate.month}월 {selectedDate.date}일</h1>
+                  {!isTodaySelected && (
+                    <button onClick={() => { haptic(); setSelectedDate({ year: currentYear, month: currentMonthNum, date: currentDateNum }); }} style={{ fontSize: '0.75rem', fontWeight: 'bold', padding: '0.25rem 0.625rem', borderRadius: '9999px', border: `1px solid ${theme.border}`, background: theme.card, color: 'inherit', cursor: 'pointer' }}>오늘</button>
+                  )}
+                </div>
+                <button onClick={() => { setNewSchedule(prev => ({ ...prev, date: formattedSelectedDateStr })); setShowAddModal(true); }} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.375rem 1rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 'bold', display: 'flex', gap: '0.25rem', alignItems: 'center', border: 'none', cursor: 'pointer' }}>
+                  <Icon name="plus" size={16} color={theme.bg} /> 추가
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, marginBottom: '1.5rem' }}>
+                {['주간', '월간', '연간'].map(view => (
+                  <button key={view} onClick={() => setScheduleView(view)} style={{ flex: 1, paddingBottom: '0.75rem', fontWeight: 'bold', fontSize: '1rem', borderBottom: scheduleView === view ? `2px solid ${theme.text}` : '2px solid transparent', opacity: scheduleView === view ? 1 : 0.5, background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', color: 'inherit' }}>{view}</button>
+                ))}
+              </div>
+
+              {scheduleView === '주간' && (
+                <>
+                  <WeekStrip selectedDate={selectedDate} onSelect={setSelectedDate} theme={theme} fixed={fixed} />
+
+                  {selectedFixed.length > 0 && (
+                    <div onClick={() => { setFixMonth({ year: selectedDate.year, month: selectedDate.month }); setFixView('이번 달'); setActiveTab('고정비'); }} style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '1rem', padding: '0.875rem 1rem', marginBottom: '1rem', cursor: 'pointer', color: '#78350F' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                        <span>₩ {isTodaySelected ? '오늘' : '이날'} 나가는 돈</span>
+                        <span>{won(selectedFixed.reduce((s, f) => s + amountFor(f, paid[ymKey(selectedDate.year, selectedDate.month)]), 0))}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8125rem', marginTop: '0.375rem', opacity: 0.85 }}>
+                        {selectedFixed.map(f => {
+                          const done = (paid[ymKey(selectedDate.year, selectedDate.month)] || {})[f.id] != null;
+                          return <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', textDecoration: done ? 'line-through' : 'none' }}><span>{f.name}</span><span>{won(f.amount)}</span></div>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {filteredSchedules.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '3rem 0', opacity: 0.5, fontSize: '0.875rem' }}>등록된 일정이 없습니다. 우측 상단 '추가'를 눌러보세요.</div>
+                    ) : filteredSchedules.map(item => {
+                      const catStyle = CATEGORIES[item.category];
+                      return (
+                        <div key={item.id} style={{ display: 'flex', gap: '0.75rem' }}>
+                          <div style={{ width: '3.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0.75rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>{item.startTime}</span>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{item.endTime}</span>
+                          </div>
+                          <div onClick={() => openEdit(item)} style={{ flex: 1, backgroundColor: catStyle.bg, borderLeft: `5px solid ${catStyle.color}`, borderRadius: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                              <h3 style={{ fontWeight: 'bold', color: '#1f2937', margin: '0 0 0.5rem' }}>{item.title}</h3>
+                              {notifications[item.id] && notifications[item.id].enabled && (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', fontSize: '0.6875rem', fontWeight: 'bold', color: catStyle.color, whiteSpace: 'nowrap' }}>
+                                  <Icon name="bell" size={14} color={catStyle.color} /> {notifications[item.id].sound || defaultSound}
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ backgroundColor: catStyle.border, color: catStyle.color, padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 'bold' }}>{item.category}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {scheduleView === '월간' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 0.5rem' }}>
+                    <button onClick={() => { haptic(); if (viewingMonth === 1) { setViewingMonth(12); setSelectedDate(p => ({ ...p, year: p.year - 1 })); } else setViewingMonth(viewingMonth - 1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: 0 }}>{selectedDate.year}년 {viewingMonth}월</h2>
+                    <button onClick={() => { haptic(); if (viewingMonth === 12) { setViewingMonth(1); setSelectedDate(p => ({ ...p, year: p.year + 1 })); } else setViewingMonth(viewingMonth + 1); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: 'bold', fontSize: '0.8125rem', opacity: 0.6, marginBottom: '0.5rem' }}>
+                    {SHORT_DAYS.map(d => <div key={d}>{d}</div>)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem' }}>
+                    {getMonthDays(selectedDate.year, viewingMonth).map((day, idx) => {
+                      if (!day) return <div key={idx} />;
+                      const dateStr = ymd(selectedDate.year, viewingMonth, day);
+                      const hasSchedule = schedules.some(s => s.date === dateStr);
+                      const pays = fixedOnDate(fixed, selectedDate.year, viewingMonth, day);
+                      return (
+                        <div key={idx} onClick={() => setDayPopup({ year: selectedDate.year, month: viewingMonth, date: day, schedules: schedules.filter(s => s.date === dateStr) })}
+                          style={{ minHeight: '3.5rem', padding: '0.25rem', borderRadius: '0.5rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8125rem', fontWeight: 'bold' }}>{day}</span>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3px', height: '0.75rem' }}>
+                            {hasSchedule && <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: theme.primary }}></span>}
+                            {pays.length > 0 && <span style={{ fontSize: '0.625rem', fontWeight: 'bold', color: '#D97706' }}>₩</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {scheduleView === '연간' && (
+                <div>
+                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.25rem', marginBottom: '1.5rem' }}>{selectedDate.year}년 연간 일정표</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                      <div key={m} onClick={() => { setViewingMonth(m); setScheduleView('월간'); }} style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '1rem', cursor: 'pointer', textAlign: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>{m}월</span>
+                        <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.5, marginTop: '0.25rem' }}>일정 확인하기 ›</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === '고정비' && (
+            <div style={{ padding: '1.5rem 1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>고정비</h1>
+                <button onClick={() => setFixEdit({ ...EMPTY_FIX, month: fm })} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.375rem 1rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 'bold', display: 'flex', gap: '0.25rem', alignItems: 'center', border: 'none', cursor: 'pointer' }}>
+                  <Icon name="plus" size={16} color={theme.bg} /> 추가
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '0.875rem', padding: '0.25rem', marginBottom: '1rem' }}>
+                {['이번 달', '전체 항목'].map(v => (
+                  <button key={v} onClick={() => { haptic(); setFixView(v); }} style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.625rem', border: 'none', fontWeight: 'bold', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: fixView === v ? theme.text : 'transparent', color: fixView === v ? theme.bg : 'inherit' }}>{v}</button>
+                ))}
+              </div>
+
+              {fixView === '이번 달' && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <button onClick={() => shiftFixMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronLeft" size={20} /></button>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.0625rem' }}>{fy}년 {fm}월</div>
+                    <button onClick={() => shiftFixMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'inherit' }}><Icon name="chevronRight" size={20} /></button>
+                  </div>
+
+                  <div style={{ backgroundColor: theme.text, color: theme.bg, borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.8125rem', opacity: 0.75, fontWeight: 'bold' }}>{fm}월 고정비 합계</div>
+                    <div style={{ fontSize: '1.875rem', fontWeight: 800, margin: '0.25rem 0 1rem', letterSpacing: '-0.02em' }}>{won(total)}</div>
+                    <div style={{ height: '0.5rem', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
+                      <div style={{ width: total ? `${Math.min(100, paidSum / total * 100)}%` : '0%', height: '100%', backgroundColor: '#22C55E', borderRadius: '9999px', transition: 'width 0.3s' }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginTop: '0.625rem', fontWeight: 'bold' }}>
+                      <span><span style={{ opacity: 0.7 }}>나간 돈</span> {won(paidSum)}</span>
+                      <span><span style={{ opacity: 0.7 }}>남은 돈</span> {won(Math.max(0, total - paidSum))}</span>
+                    </div>
+                  </div>
+
+                  {catRows.length > 0 && (
+                    <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', height: '0.625rem', borderRadius: '9999px', overflow: 'hidden', marginBottom: '0.75rem', gap: '2px' }}>
+                        {catRows.map(([c, v]) => <div key={c} style={{ flex: v, backgroundColor: FIX_CATS[c] || '#6B7280' }}></div>)}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        {catRows.map(([c, v]) => (
+                          <div key={c} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem' }}>
+                            <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: FIX_CATS[c] || '#6B7280', flexShrink: 0 }}></span>
+                            <span style={{ flex: 1, fontWeight: 'bold' }}>{c}</span>
+                            <span style={{ opacity: 0.6 }}>{Math.round(v / total * 100)}%</span>
+                            <span style={{ fontWeight: 'bold', minWidth: '5.5rem', textAlign: 'right' }}>{won(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {monthItems.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>{fixed.length === 0 ? "등록된 고정비가 없어요. '추가'를 눌러 월세, 통신비 등을 넣어보세요." : '이번 달에 나가는 고정비가 없어요.'}</div>
+                    ) : monthItems.map(({ f, day }) => <FixedRow key={f.id} f={f} day={day} y={fy} m={fm} />)}
+                  </div>
+                </>
+              )}
+
+              {fixView === '전체 항목' && (
+                <>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <div style={{ flex: 1, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.875rem' }}>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>매월 나가는 돈</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(fixed.filter(f => f.cycle !== 'yearly').reduce((s, f) => s + (Number(f.amount) || 0), 0))}</div>
+                    </div>
+                    <div style={{ flex: 1, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.875rem' }}>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>1년 합계</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(fixed.reduce((s, f) => s + (Number(f.amount) || 0) * (f.cycle === 'yearly' ? 1 : 12), 0))}</div>
+                    </div>
+                  </div>
+                  {['monthly', 'yearly'].map(cy => {
+                    const list = fixed.filter(f => (f.cycle || 'monthly') === cy).sort((a, b) => cy === 'yearly' ? (a.month - b.month || a.day - b.day) : a.day - b.day);
+                    if (!list.length) return null;
+                    return (
+                      <div key={cy} style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.6, margin: '0 0 0.5rem 0.25rem' }}>{cy === 'yearly' ? '매년' : '매월'} · {list.length}개</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {list.map(f => <FixedRow key={f.id} f={f} day={null} y={fy} m={fm} showCheck={false} />)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {fixed.length === 0 && <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>등록된 고정비가 없어요.</div>}
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === '메모' && (
+            <div style={{ padding: '1.5rem 1rem' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 1.5rem' }}>메모</h1>
+              <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '1rem', marginBottom: '1.5rem' }}>
+                <textarea value={memoInput} onChange={(e) => setMemoInput(e.target.value)} placeholder="아이디어나 메모를 자유롭게 적어보세요..." style={{ width: '100%', background: 'transparent', resize: 'none', outline: 'none', minHeight: '100px', color: theme.text, border: 'none' }}></textarea>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                  <button onClick={handleAddMemo} style={{ backgroundColor: theme.text, color: theme.bg, padding: '0.5rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>저장</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {memos.map(memo => (
+                  <div key={memo.id} style={{ backgroundColor: theme.card, borderRadius: '1rem', padding: '1rem' }}>
+                    <p style={{ fontWeight: 500, whiteSpace: 'pre-wrap', margin: 0 }}>{memo.text}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{memo.date}</span>
+                      <button onClick={() => setConfirmDelete({ type: 'memo', id: memo.id, title: memo.text.slice(0, 20) })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', opacity: 0.5, color: 'inherit' }}>삭제</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === '설정' && (
+            <div style={{ padding: '1.5rem 1rem' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0 0 1.5rem' }}>설정</h1>
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: theme.primary }}></span> 테마 색상 변경
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                  {THEMES.map(t => (
+                    <button key={t.name} onClick={() => setTheme(t)} style={{ backgroundColor: t.card, border: `2px solid ${theme.name === t.name ? t.primary : t.border}`, padding: '0.75rem', borderRadius: '0.75rem', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                      <span style={{ color: t.text, fontWeight: 'bold', fontSize: '0.875rem' }}>{t.name}</span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <div style={{ width: '1rem', height: '1rem', borderRadius: '50%', backgroundColor: t.bg, border: '1px solid rgba(0,0,0,0.06)' }}></div>
+                        <div style={{ width: '1rem', height: '1rem', borderRadius: '50%', backgroundColor: t.primary }}></div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="bell" size={18} /> 알림 및 소리</h3>
+                <p style={{ fontSize: '0.8125rem', opacity: 0.6, margin: '-0.5rem 0 1rem' }}>새 일정에 쓸 기본 알람 소리예요. 고정비 결제일 알림(오전 9시)도 이 소리로 울려요.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {SOUNDS.map(sound => {
+                    const selected = defaultSound === sound;
+                    return (
+                      <div key={sound} onClick={() => { setDefaultSound(sound); playSound(sound); }} style={{ backgroundColor: theme.card, border: `2px solid ${selected ? theme.primary : 'transparent'}`, padding: '0.875rem 1rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                        <span style={{ width: '1.125rem', height: '1.125rem', borderRadius: '50%', border: `2px solid ${selected ? theme.primary : theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {selected && <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: theme.primary }}></span>}
+                        </span>
+                        <span style={{ flex: 1, fontWeight: 'bold' }}>{sound}</span>
+                        <button onClick={(e) => { e.stopPropagation(); playSound(sound); }} style={{ fontSize: '0.75rem', fontWeight: 'bold', padding: '0.25rem 0.625rem', borderRadius: '9999px', border: `1px solid ${theme.border}`, background: 'transparent', color: 'inherit', cursor: 'pointer' }}>▶ 미리듣기</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: '0 0 0.5rem' }}>백업</h3>
+                <p style={{ fontSize: '0.8125rem', opacity: 0.6, margin: '0 0 1rem', lineHeight: 1.5 }}>데이터는 이 휴대폰 안에만 저장돼요. 휴대폰을 바꾸거나 사파리 기록을 지우기 전에 백업 파일을 저장해 두세요.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                  {[
+                    ['백업 파일 저장', downloadBackup],
+                    ['백업 파일 불러오기', () => fileRef.current && fileRef.current.click()],
+                    ['백업 내용 복사', copyBackup],
+                    ['붙여넣어 불러오기', () => setBackupText('')]
+                  ].map(([t, fn]) => (
+                    <button key={t} onClick={fn} style={{ padding: '0.875rem 0.5rem', borderRadius: '0.875rem', border: `1px solid ${theme.border}`, backgroundColor: theme.card, color: 'inherit', fontWeight: 'bold', fontSize: '0.8125rem', cursor: 'pointer' }}>{t}</button>
+                  ))}
+                </div>
+                <input ref={fileRef} type="file" accept="application/json,.json,.txt" style={{ display: 'none' }} onChange={(e) => {
+                  const file = e.target.files && e.target.files[0]; if (!file) return;
+                  const r = new FileReader(); r.onload = () => applyBackup(String(r.result)); r.readAsText(file);
+                  e.target.value = '';
+                }} />
+              </div>
+            </div>
+          )}
+
+          <div className="app-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white', padding: '0.75rem', borderTopLeftRadius: '1.5rem', borderTopRightRadius: '1.5rem', display: 'flex', justifyContent: 'space-around', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', zIndex: 10 }}>
+            {[{ id: '일정', icon: 'calendar' }, { id: '고정비', icon: 'won' }, { id: '메모', icon: 'memo' }, { id: '설정', icon: 'settings' }].map(tab => (
+              <button key={tab.id} onClick={() => { if (activeTab !== tab.id) haptic(); setActiveTab(tab.id); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', color: activeTab === tab.id ? theme.primary : '#A0AEC0', cursor: 'pointer', minWidth: '3.5rem' }}>
+                <Icon name={tab.icon} />
+                <span style={{ fontSize: '0.6875rem', fontWeight: 'bold' }}>{tab.id}</span>
+              </button>
+            ))}
+          </div>
+
+          {dayPopup && (() => {
+            const pays = fixedOnDate(fixed, dayPopup.year, dayPopup.month, dayPopup.date);
+            return (
+              <div onClick={() => setDayPopup(null)} style={overlay(60)}>
+                <div onClick={(e) => e.stopPropagation()} style={{ ...sheet, maxWidth: '22rem' }}>
+                  {closeBtn(() => setDayPopup(null))}
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', margin: '0 0 1rem' }}>{dayPopup.month}월 {dayPopup.date}일 일정</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {pays.map(f => (
+                      <div key={'f' + f.id} style={{ backgroundColor: '#FFFBEB', borderLeft: '4px solid #F59E0B', borderRadius: '0.75rem', padding: '0.75rem', color: '#78350F', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                        <span>₩ {f.name}</span><span>{won(f.amount)}</span>
+                      </div>
+                    ))}
+                    {dayPopup.schedules.length === 0 && pays.length === 0 ? (
+                      <p style={{ opacity: 0.5, fontSize: '0.875rem', textAlign: 'center', padding: '1.5rem 0', margin: 0 }}>이날은 등록된 일정이 없습니다.</p>
+                    ) : dayPopup.schedules.map(item => {
+                      const catStyle = CATEGORIES[item.category];
+                      return (
+                        <div key={item.id} onClick={() => openEdit(item)} style={{ backgroundColor: catStyle.bg, borderLeft: `4px solid ${catStyle.color}`, borderRadius: '0.75rem', padding: '0.75rem', cursor: 'pointer' }}>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '0.25rem', color: '#1f2937' }}>{item.startTime} ~ {item.endTime}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{item.title}</div>
+                            {notifications[item.id] && notifications[item.id].enabled && <Icon name="bell" size={16} color={catStyle.color} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => { setSelectedDate({ year: dayPopup.year, month: dayPopup.month, date: dayPopup.date }); setScheduleView('주간'); setDayPopup(null); }} style={{ width: '100%', backgroundColor: theme.text, color: theme.bg, padding: '0.75rem', borderRadius: '0.75rem', fontWeight: 'bold', marginTop: '1.5rem', border: 'none', cursor: 'pointer' }}>이날로 이동</button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {editing && (() => {
+            const catStyle = CATEGORIES[editing.category];
+            const timeInput = { ...inputStyle, padding: '0.625rem 0.875rem' };
+            return (
+              <div onClick={() => setEditing(null)} style={overlay(70)}>
+                <div onClick={(e) => e.stopPropagation()} style={sheet}>
+                  {closeBtn(() => setEditing(null))}
+                  <span style={{ backgroundColor: catStyle.bg, color: catStyle.color, padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 'bold' }}>{editing.category}</span>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0.75rem 2rem 0.25rem 0' }}>{editing.title}</h2>
+                  <div style={{ fontSize: '0.8125rem', opacity: 0.6, marginBottom: '1.25rem' }}>{editing.date}</div>
+                  <div className="time-row" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                    <div style={{ flex: 1 }}><label style={label}>시작 시간</label><input type="time" value={editing.startTime} onChange={(e) => setEditing({ ...editing, startTime: e.target.value })} style={timeInput} /></div>
+                    <div style={{ flex: 1 }}><label style={label}>종료 시간</label><input type="time" value={editing.endTime} onChange={(e) => setEditing({ ...editing, endTime: e.target.value })} style={timeInput} /></div>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Icon name="bell" size={18} /> 알람</div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.125rem' }}>{editing.enabled ? `${editing.startTime}에 울려요` : '꺼져 있어요'}</div>
+                      </div>
+                      <button onClick={() => { getCtx(); haptic(); setEditing({ ...editing, enabled: !editing.enabled }); }} style={{ width: '3rem', height: '1.5rem', borderRadius: '9999px', backgroundColor: editing.enabled ? '#22c55e' : '#d1d5db', border: 'none', position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
+                        <div style={{ width: '1rem', height: '1rem', borderRadius: '50%', backgroundColor: 'white', position: 'absolute', top: '0.25rem', left: editing.enabled ? '1.75rem' : '0.25rem', transition: 'left 0.2s' }}></div>
+                      </button>
+                    </div>
+                    {editing.enabled && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <label style={label}>알람 소리 (누르면 미리듣기)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                          {SOUNDS.map(sound => (
+                            <button key={sound} onClick={() => { setEditing({ ...editing, sound }); playSound(sound); }} style={chip(editing.sound === sound, theme.primary)}>{sound}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={saveEdit} style={{ backgroundColor: catStyle.color, width: '100%', padding: '0.875rem', borderRadius: '0.75rem', color: 'white', fontWeight: 'bold', fontSize: '1rem', marginTop: '1.5rem', border: 'none', cursor: 'pointer' }}>저장</button>
+                  <button onClick={() => { setConfirmDelete({ type: 'schedule', id: editing.id, title: editing.title }); setEditing(null); }} style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', background: 'none', border: 'none', color: '#EF4444', fontWeight: 'bold', fontSize: '0.875rem', cursor: 'pointer' }}>일정 삭제</button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {fixEdit && (
+            <div onClick={() => setFixEdit(null)} style={overlay(70)}>
+              <div onClick={(e) => e.stopPropagation()} style={sheet}>
+                {closeBtn(() => setFixEdit(null))}
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 1.25rem' }}>{fixEdit.id ? '고정비 수정' : '고정비 추가'}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={label}>분류</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.375rem' }}>
+                      {Object.keys(FIX_CATS).map(c => <button key={c} onClick={() => setFixEdit({ ...fixEdit, category: c })} style={chip(fixEdit.category === c, FIX_CATS[c])}>{c}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={label}>이름</label>
+                    <input type="text" value={fixEdit.name} onChange={(e) => setFixEdit({ ...fixEdit, name: e.target.value })} placeholder="예: 월세, 통신비, 넷플릭스" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={label}>{fixEdit.variable ? '예상 금액' : '금액'}</label>
+                    <div style={{ position: 'relative' }}>
+                      <input type="text" inputMode="numeric" value={fixEdit.amount} onChange={(e) => setFixEdit({ ...fixEdit, amount: commaInput(e.target.value) })} placeholder="0" style={{ ...inputStyle, textAlign: 'right', paddingRight: '2.25rem' }} />
+                      <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 'bold', color: '#6B7280' }}>원</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={label}>주기</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                      {[['monthly', '매월'], ['yearly', '매년']].map(([v, t]) => <button key={v} onClick={() => setFixEdit({ ...fixEdit, cycle: v })} style={chip(fixEdit.cycle === v, theme.text)}>{t}</button>)}
+                    </div>
+                  </div>
+                  <div className="time-row" style={{ display: 'flex', gap: '0.75rem' }}>
+                    {fixEdit.cycle === 'yearly' && (
+                      <div style={{ flex: 1 }}>
+                        <label style={label}>결제 월</label>
+                        <select value={fixEdit.month} onChange={(e) => setFixEdit({ ...fixEdit, month: Number(e.target.value) })} style={inputStyle}>
+                          {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{i + 1}월</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <label style={label}>결제일</label>
+                      <select value={fixEdit.day} onChange={(e) => setFixEdit({ ...fixEdit, day: Number(e.target.value) })} style={inputStyle}>
+                        {Array.from({ length: 31 }, (_, i) => <option key={i} value={i + 1}>{i + 1 === 31 ? '말일' : `${i + 1}일`}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={label}>결제수단 (선택)</label>
+                    <input type="text" value={fixEdit.method} onChange={(e) => setFixEdit({ ...fixEdit, method: e.target.value })} placeholder="예: 자동이체, 신한카드" style={inputStyle} />
+                  </div>
+                  {[
+                    ['variable', '매달 금액이 바뀌어요', '관리비·전기세처럼. 체크할 때 그달 실제 금액을 적어요.'],
+                    ['notify', '결제일 알림', '결제일 오전 9시에 알려줘요 (앱이 열려 있을 때).']
+                  ].map(([k, t, s]) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.9375rem' }}>{t}</div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.125rem' }}>{s}</div>
+                      </div>
+                      <button onClick={() => { haptic(); setFixEdit({ ...fixEdit, [k]: !fixEdit[k] }); }} style={{ width: '3rem', height: '1.5rem', borderRadius: '9999px', backgroundColor: fixEdit[k] ? '#22c55e' : '#d1d5db', border: 'none', position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
+                        <div style={{ width: '1rem', height: '1rem', borderRadius: '50%', backgroundColor: 'white', position: 'absolute', top: '0.25rem', left: fixEdit[k] ? '1.75rem' : '0.25rem', transition: 'left 0.2s' }}></div>
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={saveFixed} style={{ backgroundColor: FIX_CATS[fixEdit.category], width: '100%', padding: '0.875rem', borderRadius: '0.75rem', color: 'white', fontWeight: 'bold', fontSize: '1rem', marginTop: '0.5rem', border: 'none', cursor: 'pointer' }}>{fixEdit.id ? '저장' : '추가하기'}</button>
+                  {fixEdit.id && (
+                    <button onClick={() => { setConfirmDelete({ type: 'fixed', id: fixEdit.id, title: fixEdit.name }); setFixEdit(null); }} style={{ width: '100%', padding: '0.5rem', background: 'none', border: 'none', color: '#EF4444', fontWeight: 'bold', fontSize: '0.875rem', cursor: 'pointer' }}>고정비 삭제</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {payInput && (
+            <div onClick={() => setPayInput(null)} style={overlay(75)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ ...sheet, maxWidth: '20rem' }}>
+                <h3 style={{ fontWeight: 'bold', margin: '0 0 0.25rem' }}>{payInput.f.name}</h3>
+                <p style={{ fontSize: '0.8125rem', opacity: 0.6, margin: '0 0 1rem' }}>이번에 실제로 나간 금액을 적어주세요.</p>
+                <div style={{ position: 'relative' }}>
+                  <input autoFocus type="text" inputMode="numeric" value={payInput.value} onChange={(e) => setPayInput({ ...payInput, value: commaInput(e.target.value) })} style={{ ...inputStyle, textAlign: 'right', paddingRight: '2.25rem' }} />
+                  <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 'bold', color: '#6B7280' }}>원</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
+                  <button onClick={() => setPayInput(null)} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: `1px solid ${theme.border}`, background: 'transparent', color: 'inherit', fontWeight: 'bold', cursor: 'pointer' }}>취소</button>
+                  <button onClick={confirmPay} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', background: '#22C55E', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>결제 완료</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {backupText !== null && (
+            <div onClick={() => setBackupText(null)} style={overlay(75)}>
+              <div onClick={(e) => e.stopPropagation()} style={sheet}>
+                {closeBtn(() => setBackupText(null))}
+                <h3 style={{ fontWeight: 'bold', margin: '0 0 0.25rem' }}>붙여넣어 불러오기</h3>
+                <p style={{ fontSize: '0.8125rem', opacity: 0.6, margin: '0 0 1rem' }}>복사해 둔 백업 내용을 붙여넣으세요. 지금 데이터는 백업 내용으로 바뀌어요.</p>
+                <textarea value={backupText} onChange={(e) => setBackupText(e.target.value)} style={{ width: '100%', minHeight: '8rem', borderRadius: '0.75rem', border: `1px solid ${theme.border}`, padding: '0.75rem', fontSize: '12px', fontFamily: 'monospace', color: '#000' }}></textarea>
+                <button onClick={() => applyBackup(backupText)} style={{ width: '100%', backgroundColor: theme.text, color: theme.bg, padding: '0.875rem', borderRadius: '0.75rem', fontWeight: 'bold', marginTop: '1rem', border: 'none', cursor: 'pointer' }}>불러오기</button>
+              </div>
+            </div>
+          )}
+
+          {ringing && (
+            <div style={overlay(90)}>
+              <div style={{ ...sheet, maxWidth: '20rem', padding: '2rem 1.5rem', textAlign: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon name="bell" size={40} color={ringing.color} /></div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{ringing.time}</div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.125rem', margin: '0.5rem 0 0.25rem' }}>{ringing.title}</div>
+                <div style={{ fontSize: '0.8125rem', opacity: 0.6, marginBottom: '1.5rem' }}>{ringing.sub}</div>
+                <button onClick={() => setRinging(null)} style={{ width: '100%', backgroundColor: ringing.color, color: 'white', padding: '0.875rem', borderRadius: '0.75rem', fontWeight: 'bold', fontSize: '1rem', border: 'none', cursor: 'pointer' }}>알람 끄기</button>
+              </div>
+            </div>
+          )}
+
+          {confirmDelete && (
+            <div style={overlay(80)}>
+              <div style={{ ...sheet, maxWidth: '20rem', textAlign: 'center' }}>
+                <p style={{ fontWeight: 'bold', margin: '0 0 0.5rem' }}>{{ memo: '메모를 삭제할까요?', schedule: '일정을 삭제할까요?', fixed: '고정비를 삭제할까요?' }[confirmDelete.type]}</p>
+                <p style={{ fontSize: '0.875rem', opacity: 0.6, margin: '0 0 1.25rem', wordBreak: 'break-all' }}>{confirmDelete.title}</p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: `1px solid ${theme.border}`, background: 'transparent', color: 'inherit', fontWeight: 'bold', cursor: 'pointer' }}>취소</button>
+                  <button onClick={() => {
+                    const { type, id } = confirmDelete;
+                    if (type === 'memo') deleteMemo(id); else if (type === 'fixed') deleteFixed(id); else deleteSchedule(id);
+                    setConfirmDelete(null);
+                  }} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', background: '#EF4444', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>삭제</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {toast && (
+            <div style={{ position: 'fixed', left: '50%', bottom: '6.5rem', transform: 'translateX(-50%)', backgroundColor: 'rgba(30,30,30,0.9)', color: 'white', padding: '0.625rem 1.125rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 'bold', zIndex: 100, whiteSpace: 'nowrap' }}>{toast}</div>
+          )}
+
+          {showAddModal && (
+            <div onClick={() => setShowAddModal(false)} style={overlay(50)}>
+              <div onClick={(e) => e.stopPropagation()} style={sheet}>
+                {closeBtn(() => setShowAddModal(false))}
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 1.25rem' }}>새 일정 추가</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={label}>카테고리</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                      {Object.keys(CATEGORIES).map(cat => (
+                        <button key={cat} onClick={() => setNewSchedule({ ...newSchedule, category: cat })} style={{ backgroundColor: newSchedule.category === cat ? CATEGORIES[cat].bg : 'transparent', color: newSchedule.category === cat ? CATEGORIES[cat].color : 'inherit', border: `1px solid ${newSchedule.category === cat ? CATEGORIES[cat].color : theme.border}`, padding: '0.5rem 0', fontSize: '0.8125rem', fontWeight: 'bold', borderRadius: '0.75rem', cursor: 'pointer' }}>{cat}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div><label style={label}>날짜 선택</label><input type="date" value={newSchedule.date} onChange={(e) => setNewSchedule({ ...newSchedule, date: e.target.value })} style={inputStyle} /></div>
+                  <div><label style={label}>일정 제목</label><input type="text" value={newSchedule.title} onChange={(e) => setNewSchedule({ ...newSchedule, title: e.target.value })} placeholder="무엇을 할 예정인가요?" style={inputStyle} /></div>
+                  <div className="time-row" style={{ display: 'flex', gap: '0.75rem' }}>
+                    <div style={{ flex: 1 }}><label style={label}>시작 시간</label><input type="time" value={newSchedule.startTime} onChange={(e) => setNewSchedule({ ...newSchedule, startTime: e.target.value })} style={inputStyle} /></div>
+                    <div style={{ flex: 1 }}><label style={label}>종료 시간</label><input type="time" value={newSchedule.endTime} onChange={(e) => setNewSchedule({ ...newSchedule, endTime: e.target.value })} style={inputStyle} /></div>
+                  </div>
+                  <button onClick={handleAddSchedule} style={{ backgroundColor: CATEGORIES[newSchedule.category].color, width: '100%', padding: '0.875rem', borderRadius: '0.75rem', color: 'white', fontWeight: 'bold', fontSize: '1rem', marginTop: '0.75rem', border: 'none', cursor: 'pointer' }}>일정 추가하기</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
