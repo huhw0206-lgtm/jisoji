@@ -416,6 +416,7 @@
       const [paid, setPaid] = useState(() => (SAVED && SAVED.paid) || {});
       const [fixMonth, setFixMonth] = useState({ year: currentYear, month: currentMonthNum });
       const [fixView, setFixView] = useState('이번 달');
+      const [fixSort, setFixSort] = useState(() => (SAVED && SAVED.fixSort) || 'custom');
       const [fixEdit, setFixEdit] = useState(null);     // 추가·수정 창
       const [payInput, setPayInput] = useState(null);   // 변동 금액 입력 창
 
@@ -424,8 +425,8 @@
       const fileRef = useRef(null);
 
       useEffect(() => {
-        saveLocal({ schedules, memos, notifications, themeName: theme.name, defaultSound, fixed, paid });
-      }, [schedules, memos, notifications, theme, defaultSound, fixed, paid]);
+        saveLocal({ schedules, memos, notifications, themeName: theme.name, defaultSound, fixed, paid, fixSort });
+      }, [schedules, memos, notifications, theme, defaultSound, fixed, paid, fixSort]);
 
       useEffect(() => {
         try { document.querySelector('meta[name="theme-color"]').setAttribute('content', theme.bg); } catch (e) {}
@@ -657,16 +658,33 @@
         return { t: `D-${diff}`, c: '#9CA3AF' };
       };
 
+      const CAT_ORDER = Object.keys(FIX_CATS);
+      const sortFixed = (arr, amt) => {
+        const idx = {}; fixed.forEach((f, i) => { idx[f.id] = i; });
+        const a = arr.slice();
+        if (fixSort === 'amount') a.sort((x, y) => amt(y) - amt(x) || idx[x.id] - idx[y.id]);
+        else if (fixSort === 'category') a.sort((x, y) => (CAT_ORDER.indexOf(x.category) - CAT_ORDER.indexOf(y.category)) || idx[x.id] - idx[y.id]);
+        return a;
+      };
+      const plainRows = (list, row) => <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{list.map(f => <div key={f.id}>{row(f)}</div>)}</div>;
+      const sortBar = (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.25rem', marginBottom: '0.625rem' }}>
+          {[['custom', '직접 순서'], ['amount', '금액순'], ['category', '분류별']].map(([v, t]) => (
+            <button key={v} onClick={() => { if (fixSort !== v) haptic(); setFixSort(v); }} style={{ fontSize: '0.75rem', fontWeight: 'bold', padding: '0.3125rem 0.625rem', borderRadius: '9999px', cursor: 'pointer', border: `1px solid ${fixSort === v ? theme.text : theme.border}`, backgroundColor: fixSort === v ? theme.text : theme.card, color: fixSort === v ? theme.bg : 'inherit' }}>{t}</button>
+          ))}
+        </div>
+      );
+
       const renderFixedRow = (f, day, y, m, showCheck, handle) => {
         const pmx = paid[ymKey(y, m)] || {};
         const done = pmx[f.id] != null;
         const color = FIX_CATS[f.category] || '#6B7280';
         const b = day != null ? dBadge(day) : null;
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: '0.75rem 0.875rem 0.75rem 0.25rem' }}>
-            <div {...handle} aria-label="순서 바꾸기" style={{ alignSelf: 'stretch', width: '1.75rem', margin: '-0.75rem -0.25rem -0.75rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, touchAction: 'none', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', opacity: 0.35 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '1rem', padding: handle ? '0.75rem 0.875rem 0.75rem 0.25rem' : '0.75rem 0.875rem' }}>
+            {handle && <div {...handle} aria-label="순서 바꾸기" style={{ alignSelf: 'stretch', width: '1.75rem', margin: '-0.75rem -0.25rem -0.75rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, touchAction: 'none', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', opacity: 0.35 }}>
               <Icon name="drag" size={20} />
-            </div>
+            </div>}
             <div onClick={() => setFixEdit({ ...EMPTY_FIX, ...f, amtMode: 'month', amount: commaInput(f.amount) })} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, cursor: 'pointer', opacity: done ? 0.55 : 1 }}>
               <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', backgroundColor: color + '1F', color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 'bold', lineHeight: 1.1 }}>
                 <span style={{ fontSize: '0.9375rem' }}>{f.cycle === 'yearly' && day == null ? f.month : (day != null ? day : f.day)}</span>
@@ -887,7 +905,29 @@
                     <div style={{ textAlign: 'center', padding: '2.5rem 0', opacity: 0.5, fontSize: '0.875rem' }}>{fixed.length === 0 ? "등록된 고정비가 없어요. '추가'를 눌러 월세, 통신비 등을 넣어보세요." : '이번 달에 나가는 고정비가 없어요.'}</div>
                   ) : (() => {
                     const byId = {}; monthItems.forEach(x => { byId[x.f.id] = x; });
-                    return <SortableList ids={monthItems.map(x => x.f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(byId[id].f, byId[id].day, fy, fm, true, h)} />;
+                    const row = (f) => renderFixedRow(f, byId[f.id].day, fy, fm, true, null);
+                    let body;
+                    if (fixSort === 'custom') {
+                      body = <SortableList ids={monthItems.map(x => x.f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(byId[id].f, byId[id].day, fy, fm, true, h)} />;
+                    } else if (fixSort === 'amount') {
+                      body = plainRows(sortFixed(monthItems.map(x => x.f), f => amountFor(f, pm)), row);
+                    } else {
+                      const sorted = sortFixed(monthItems.map(x => x.f));
+                      body = CAT_ORDER.filter(c => sorted.some(f => f.category === c)).map(c => {
+                        const g = sorted.filter(f => f.category === c);
+                        return (
+                          <div key={c} style={{ marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', fontWeight: 'bold', margin: '0 0.25rem 0.5rem' }}>
+                              <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: FIX_CATS[c] }}></span>
+                              <span>{c}</span><span style={{ opacity: 0.5 }}>{g.length}개</span>
+                              <span style={{ marginLeft: 'auto' }}>{won(g.reduce((sum, f) => sum + amountFor(f, pm), 0))}</span>
+                            </div>
+                            {plainRows(g, row)}
+                          </div>
+                        );
+                      });
+                    }
+                    return <>{sortBar}{body}</>;
                   })()}
                 </>
               )}
@@ -904,13 +944,16 @@
                       <div style={{ fontWeight: 800, fontSize: '1.125rem', marginTop: '0.25rem' }}>{won(Array.from({ length: 12 }, (_, i) => { const t = currentYear * 12 + currentMonthNum - 1 + i; const yy = Math.floor(t / 12), mm = t % 12 + 1; return fixed.filter(f => dueDay(f, yy, mm) != null).reduce((s, f) => s + (Number(f.amount) || 0), 0); }).reduce((a, b) => a + b, 0))}</div>
                     </div>
                   </div>
+                  {fixed.length > 0 && sortBar}
                   {['monthly', 'installment', 'yearly'].map(cy => {
-                    const list = fixed.filter(f => (f.cycle || 'monthly') === cy);
+                    const list = sortFixed(fixed.filter(f => (f.cycle || 'monthly') === cy), f => Number(f.amount) || 0);
                     if (!list.length) return null;
                     return (
                       <div key={cy} style={{ marginBottom: '1.25rem' }}>
                         <div style={{ fontSize: '0.8125rem', fontWeight: 'bold', opacity: 0.6, margin: '0 0 0.5rem 0.25rem' }}>{{ monthly: '매월', installment: '할부', yearly: '매년' }[cy]} · {list.length}개</div>
-                        <SortableList ids={list.map(f => f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(list.find(f => f.id === id), null, fy, fm, false, h)} />
+                        {fixSort === 'custom'
+                          ? <SortableList ids={list.map(f => f.id)} onMove={moveFixed} render={(id, h) => renderFixedRow(list.find(f => f.id === id), null, fy, fm, false, h)} />
+                          : plainRows(list, f => renderFixedRow(f, null, fy, fm, false, null))}
                       </div>
                     );
                   })}
