@@ -14,6 +14,12 @@
   <style>
     html, body { margin: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
     html, body { overscroll-behavior: none; }
+    /* 컴퓨터처럼 넓은 화면: 휴대폰 크기로 가운데 */
+    .app-shell { max-width: 30rem; margin: 0 auto; }
+    @media (min-width: 40rem) {
+      html, body { background: #D9D6CE; }
+      .app-shell { box-shadow: 0 0 40px rgba(0,0,0,0.08); }
+    }
     * { box-sizing: border-box; }
     button { font-family: inherit; }
     .app-nav { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important; }
@@ -725,7 +731,7 @@
       };
 
       return (
-        <div style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '7rem', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <div className="app-shell" style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '7rem', position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
           {activeTab === '일정' && (
             <div style={{ padding: '1.5rem 1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1048,7 +1054,7 @@
             </div>
           )}
 
-          <div className="app-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white', padding: '0.75rem', borderTopLeftRadius: '1.5rem', borderTopRightRadius: '1.5rem', display: 'flex', justifyContent: 'space-around', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', zIndex: 10 }}>
+          <div className="app-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: '30rem', margin: '0 auto', backgroundColor: 'white', padding: '0.75rem', borderTopLeftRadius: '1.5rem', borderTopRightRadius: '1.5rem', display: 'flex', justifyContent: 'space-around', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', zIndex: 10 }}>
             {[{ id: '일정', icon: 'calendar' }, { id: '고정비', icon: 'won' }, { id: '메모', icon: 'memo' }, { id: '설정', icon: 'settings' }].map(tab => (
               <button key={tab.id} onClick={() => { if (activeTab !== tab.id) haptic(); setActiveTab(tab.id); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', color: activeTab === tab.id ? theme.primary : '#A0AEC0', cursor: 'pointer', minWidth: '3.5rem' }}>
                 <Icon name={tab.icon} />
